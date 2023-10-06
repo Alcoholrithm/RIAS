@@ -44,7 +44,7 @@ def main():
     # parser.add_argument('--lime_class_names', type=List[str], default=None)
     
     parser.add_argument('--hparams', type=str, default = None, help="The location of the cached optimal hyperparameters")
-    parser.add_argument('--n_trials', type=int, default = 100, help="n_trials of optuna")
+    parser.add_argument('--n_trials', type=int, default = None, help="n_trials of optuna")
     parser.add_argument('--KFold', type=int, default = None)
     parser.add_argument('--fast_dev_run', action="store_true", help="Activate fast dev run")
     
@@ -53,14 +53,15 @@ def main():
     assert args.config != 'base_config', "Cannot use base config"
 
     data, label, X_test, y_test, continuous_cols, categorical_cols, data_config = prepare_data(args)
-
+    
     config = prepare_config(args, data_config)
 
     runner = prepare_runner(args, config, data, label, continuous_cols, categorical_cols)
 
     runner.train()
     
-    runner.init_calibrator()
+    if config.experiment.calibrator is not None:
+        runner.init_calibrator()
     runner.test(X_test, y_test, KamirEvalMetric())
 
     if args.use_dice:
@@ -68,7 +69,8 @@ def main():
     
     if args.use_lime:
         import random
-        runner.lime(X_test.iloc[random.randint(0, len(X_test))].values)
+        runner.lime(X_test[y_test == 1].iloc[3].values)
+        # runner.lime(X_test.iloc[random.randint(0, len(X_test))].values)
 
 
 def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
@@ -86,7 +88,7 @@ def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array,
 
     X_test, y_test = data.iloc[test_idx], label[test_idx]
     data, label = data.iloc[train_idx], label[train_idx]
-    
+
     return data, label, X_test, y_test, continuous_cols, categorical_cols, data_config
 
 def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -> SimpleNamespace:
@@ -99,7 +101,6 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
         config.model.hparams = hparams
     
     config.experiment.save_hparams = args.save_hparams
-    config.model.out_dim = 2
     
     config.experiment.fast_dev_run = args.fast_dev_run
     config.experiment.metric = data_config.metric
@@ -113,10 +114,9 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
     if hasattr(config.model, 'gpus'):
         config.model.gpus = args.gpus if args.gpus is not None else config.model.gpus
     
-    config.experiment.optuna.n_trials = args.n_trials
+    config.experiment.optuna.n_trials = args.n_trials if args.n_trials is not None else config.experiment.optuna.n_trials
     
-    config.experiment.calibrator = "TemperatureScaling"
-    config.experiment.calibrator = "BetaCalibration"
+    config.experiment.calibrator = args.calibrator
     
     config.dice.backend = args.dice_backend
     config.dice.desired_class = args.dice_desired

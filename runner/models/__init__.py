@@ -1,7 +1,7 @@
 from .base_model import BaseModel
-from .xgb_clf import XGBClf
-from .lgbm_clf import LGBMClf
+from .xgb import XGB
+from .lgbm import LGBM
 from .mlp import MLP
 from .ft_transformer import FTTransformer
 
-__all__ = ["BaseModel", "XGBClf", "LGBMClf", "MLP", "FTTransformer"]
+__all__ = ["BaseModel", "XGB", "LGBM", "MLP", "FTTransformer"]

@@ -135,6 +135,8 @@ class PytorchTabularBase(BaseModel, ABC):
                 return_proba: bool = False
         ) -> Union[Tuple[NDArray[np.int_], NDArray[np.float_]], NDArray[np.int_]]:
         
+        X_test = X_test.copy()
+        
         X_test['target'] = [0 for _ in range(len(X_test))]
         
         preds = self.model.predict(X_test)

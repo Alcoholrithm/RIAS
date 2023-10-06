@@ -46,7 +46,7 @@ class KamirDataModule(DataModule):
             with open(self.config.dataset_path, 'rb') as f:
                 dataset = pickle.load(f)
             
-            return dataset['data'], dataset['label']
+            return dataset['data'], dataset['label'], dataset["continuous_cols"], dataset["categorical_cols"]
         
         data = self.load_data()
 
@@ -83,8 +83,8 @@ class KamirDataModule(DataModule):
         for col in categorical_cols:
             data[col] = le.fit_transform(data[col])
 
+        categorical_cols.extend(binary_cols)
         
-        # if hasattr(self.config, 'rename_cols'):
         data.rename(columns=self.config.rename_cols, inplace=True)
         for idx, c in enumerate(continuous_cols):
             if c in self.config.rename_cols.keys():
@@ -94,9 +94,11 @@ class KamirDataModule(DataModule):
             if c in self.config.rename_cols.keys():
                 categorical_cols[idx] = self.config.rename_cols[c]
 
+        data[categorical_cols] = data[categorical_cols].astype('category')
+
         # if self.config.runner_option.save_data:
-        # self.save_data(data, label)
-            
+        #   self.save_data(data, label.values, continuous_cols = continuous_cols, categorical_cols = categorical_cols)
+
         return data, label.values, continuous_cols, categorical_cols
 
     def get_6M(self, 
@@ -283,6 +285,7 @@ class KamirDataModule(DataModule):
         for k in onehot_cols.keys():
             categorical_cols.remove(k)
         
+        categorical_cols.extend(final_onehot_cols)
         data[categorical_cols] = data[categorical_cols].astype("str")
 
         return data, categorical_cols

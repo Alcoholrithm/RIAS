@@ -18,7 +18,7 @@ base_config.experiment.task = None
 
 base_config.experiment.n_jobs = 32
 
-base_config.experiment.KFold = 10
+base_config.experiment.KFold = 5
 base_config.experiment.valid_size = 0.2
 base_config.experiment.metric = None
 base_config.experiment.metric_params = None
@@ -27,12 +27,13 @@ base_config.experiment.report_metric = None
 base_config.experiment.save_hparams = False
 
 base_config.experiment.optuna = SimpleNamespace()
-base_config.experiment.optuna.n_trials = 100
+base_config.experiment.optuna.n_trials = 50
 base_config.experiment.optuna.direction = None
 
 base_config.experiment.ece_bins = 10
+base_config.experiment.calibrator = None
 
-base_config.experiment.early_stopping_patience = 50
+base_config.experiment.early_stopping_patience = 30
 base_config.experiment.fast_dev_run = False
 
 
@@ -50,4 +51,5 @@ base_config.lime.class_names = None # A list of class names
 base_config.lime.verbose = True
 base_config.lime.discretize_continuous = True
 base_config.lime.kwargs = {} # for LimeTabularExplainer
+base_config.lime.num_features = None
 base_config.lime.file = None # The name of report file for given sample (*.html)

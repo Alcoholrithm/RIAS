@@ -3,7 +3,7 @@ from copy import deepcopy
 
 xgb_config = deepcopy(base_config)
 
-xgb_config.model.model_class = "XGBClf"
+xgb_config.model.model_class = "XGB"
 
 xgb_config.model.fit_params["verbose"] = 0
 

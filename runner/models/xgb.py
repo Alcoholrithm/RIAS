@@ -3,10 +3,9 @@ import pandas as pd
 import numpy as np
 from types import SimpleNamespace
 from typing import Dict, Any
-from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier, XGBRegressor
 from copy import deepcopy
-
-class LGBMClf(BaseModel):
+class XGB(BaseModel):
     def __init__(self, **kwargs) -> None:
         # config: SimpleNamespace = None, hparams: Dict[str, Any] = None
         config = kwargs["config"]
@@ -18,8 +17,10 @@ class LGBMClf(BaseModel):
             hparams = self.config.model.hparams
 
         hparams["early_stopping_rounds"] = self.config.experiment.early_stopping_patience
-        
-        self.model = LGBMClassifier(**hparams)
+        hparams["enable_categorical"] = True
+        hparams["n_jobs"] = self.config.experiment.n_jobs
+        xgb_class = XGBRegressor if self.config.experiment.task == "regression" else XGBClassifier
+        self.model = xgb_class(**hparams)
         
     
     def fit(self, X_train: pd.DataFrame, y_train: np.array, X_valid: pd.DataFrame, y_valid: np.array) -> None:
@@ -36,5 +37,8 @@ class LGBMClf(BaseModel):
         self.model.save_model(saving_path)
 
     def load_model(self) -> None:
-        self.model = LGBMClassifier()
+        self.model = XGBClassifier()
         self.model.load_model(self.config.model.model_path)
+        
+    def __call__(self, X_test: pd.DataFrame) -> np.array:
+        return self.predict(X_test)

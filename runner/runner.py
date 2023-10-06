@@ -28,7 +28,7 @@ from .misc.eval_metric import EvalMetric
 
 class Runner(object):
     def __init__(self, config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array,
-                 continuous_cols: List[str], categorical_cols: List[str]) -> None:
+                    continuous_cols: List[str], categorical_cols: List[str]) -> None:
         
         self.start_time = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         
@@ -108,11 +108,12 @@ class Runner(object):
         X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
         
         self.ece = ECE(self.config.experiment.ece_bins)
-        
+
         if hasattr(scaling, self.config.experiment.calibrator):
             self.calibrator = getattr(scaling, self.config.experiment.calibrator)()
-            
+
             preds_proba = self.model.predict_proba(X_valid)
+
             self.calibrator.fit(preds_proba, y_valid)
             
             uncalibrated_score = self.ece.measure(preds_proba, y_valid)
@@ -281,6 +282,8 @@ class Runner(object):
         assert self.model is not None, "Must train the model"
         if type(X_test) == np.ndarray:
             X_test = pd.DataFrame(X_test.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
+        X_test = X_test.astype(self.X.dtypes)
+
         return self.model.predict_proba(X_test)
     
     def train(self) -> None:
@@ -293,10 +296,8 @@ class Runner(object):
             "categorical_cols" : self.categorical_cols,
             "hparams" : None
         }
-        # model = self.model_class(config = self.config, hparams = hparams)
+
         self.model = self.model_class(**model_params)
-        
-        # self.model = self.model_class(config = self.config)
         
         self.set_random_seed()
         X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
@@ -315,19 +316,20 @@ class Runner(object):
     
     def dice(self, X_test: pd.DataFrame) -> None:
 
-        dice_data = self.X.copy()
+        dice_data = self.X.copy()  
         dice_data["target"] = self.y
         
         d = dice_ml.Data(dataframe=dice_data,
                         continuous_features=self.continuous_cols,
                         outcome_name='target')
         # Pre-trained ML model
-        m = dice_ml.Model(model = self.model, backend=self.config.dice.backend, func=self.config.dice.func)
+        m = dice_ml.Model(model = self, backend=self.config.dice.backend, func=self.config.dice.func)
         # DiCE explanation instance
         exp = dice_ml.Dice(d,m)
         
+
         dice_exp = exp.generate_counterfactuals(X_test, total_CFs=self.config.dice.total_CFs, desired_class=self.config.dice.desired_class, **self.config.dice.additional_kwargs)
-        # Visualize counterfactual explanation
+
         dice_exp.visualize_as_dataframe()
     
     def lime(self, sample: pd.Series) -> None:
@@ -336,7 +338,7 @@ class Runner(object):
         for idx, col in enumerate(self.X.columns):
             if col in self.categorical_cols:
                 categorical_features.append(idx)
-        
+                
         print("########## The result of lime for the given sample ##########")
         explainer = lime.lime_tabular.LimeTabularExplainer(self.X.values, 
                                                         feature_names=self.X.columns, 
@@ -348,8 +350,12 @@ class Runner(object):
                                                         discretize_continuous=self.config.lime.discretize_continuous,
                                                         random_state = self.config.experiment.random_seed,
                                                         **self.config.lime.kwargs)
-        
-        exp = explainer.explain_instance(sample, self.model.predict_proba)
+
+        exp = explainer.explain_instance(
+                                            sample, 
+                                            self.predict_proba, 
+                                            num_features=self.X.shape[-1] if self.config.lime.num_features is None else self.config.lime.num_features)
+
         exp.save_to_file(self.config.lime.file)
         print()
         return exp
