@@ -1,0 +1,7 @@
+.git/
+*.pt_tmp/
+*__pychache__/
+*data_cache/
+*test*
+hparams/
+*.html

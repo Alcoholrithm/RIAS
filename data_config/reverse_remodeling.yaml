@@ -1,0 +1,83 @@
+data_module : 'KamirDataModule'
+
+file_path : '../kamir/KAMIR-V 1Y FU DATA_Cumulative Death_20220124_변수정리.xlsx'
+
+dataset_path : './data/2023_06_29-19_07_46-reverse_remodeling.pickle'
+
+categorical_cols_idx : [38, 41, 42, 47, 51, 55, 73, 88, 89, 98, 102, 113, 115, 116, 141, 164, 165, 166, 167, 172, 325]
+binary_cols_idx : [5, 20, 44, 48, 52, 56, 60, 64, 68, 81, 99, 104, 108, 109, 110, 111, 112, 176, 194, 195, 199, 201, 209, 244,256, 252, 254]
+continuous_cols_idx : [4, 28, 31, 32, 33, 36, 37, 170, 174, 175, 177, 178, 259, 262, 265, 268, 271, 274, 277, 280, 283, 286, 289, 292, 293, 294, 297, 300, 303, 306, 309, 312, 313, 316, 317, 401, 402, 403]
+continuous_total_cols_idx : [[4, 28, 31, 32, 33, 36, 37, 170, 174, 175, 177, 178, 259, 262, 265, 268, 271, 274, 277, 280, 283, 286, 289, 292, 293, 294, 297, 300, 303, 306, 309, 312, 313, 316, 317,
+                            614 , 615 , 616 , 617 , 618 , 619 , 620 , 621 , 622 , 623 , 624 , 625 , 626 , 627 , 628 , 629 , 630 , 631 , 632 , 633 , 634 , 635  ]]
+date_cols_idx : [17, 24, 103]
+
+allowed_missing : 0.4
+
+onehot_cols : {
+  'ST change on ECG' : ['ST segment elevation', 'ST segment depression', 'No change',
+                          'T-wave inversion', 'Q wave', 'RBBB', 'LBBB'],
+  'Heart rhythm on ECG' : ['Other', 'Sinus rhythm', 'Wide QRS tachycardia',
+                              '2nd degree AV block', 'Atrial fibrillation', 'Paced rhythm',
+                              '3rd degree AV block']
+  }
+
+abnormal_numerics : {
+    'SBP' : !!python/tuple [0, 240],
+    'DBP' : !!python/tuple [0, 160],
+    'HR' : !!python/tuple [0, 180],
+    'HbA1c (1st during admission) - data' : !!python/tuple [4, 10],
+    'data.5' : !!python/tuple [0, 40],
+    'data.6' : !!python/tuple [10, 300],
+    'data.7' : !!python/tuple [10, 80],
+    'TG' : !!python/tuple [10, 1000],
+    'Total cholesterol (at NPO).1' : !!python/tuple [10, 500],
+    'WBC' : !!python/tuple [1.5, 30],
+    'Neutrophil' : !!python/tuple [0, 100],
+    'Iymphocyte' : !!python/tuple [0, 100],
+    'data.8' : !!python/tuple [0, 650],
+    'data.9' : !!python/tuple [0, 1000],
+    'data.10' : !!python/tuple [0, 10000],
+    'data.11' : !!python/tuple [0.1, 10],
+    'data.12' : !!python/tuple [0.1, 10],
+    'Glucose (on admission).1' : !!python/tuple [50, 600],
+    'Platelet (on admission)' : !!python/tuple [15, 600],
+    'Hb(Lowest)' : !!python/tuple [3, 20],
+    'Hb (on admission)' : !!python/tuple [3, 20],
+    'LVEF' : !!python/tuple [10, 70],
+}
+
+rename_cols : {
+                'data.5' : 'hsCRP',
+                'data.6' : 'LDL-c',
+                'data.7' : 'HDL-c',
+                'data.8' : 'Peak Troponin I',
+                'data.9' : 'Peak CK-MB',
+                'data.10' : 'Peak CK',
+                'data.11' : 'Peak cr',
+                'data.12' : 'On admission cr  ',
+                'Use of distal protection device.1' : 'Use of distal protection device',
+                'Result of PCI.1' : 'Result of PCI',
+                'Total cholesterol (at NPO).1' : 'Total cholesterol (at NPO)',
+                'Glucose (on admission).1' : 'Glucose (on admission)',
+                'LVED.1' : 'LVED'
+            }
+            
+LVEF_40 : "all"
+# LVEF_40 : "more_than"
+# LVEF_40 : "less"
+
+target : "reverse_remodeling"
+
+# minimum_cols : []
+minimum_cols : ['LVESV', 'Peak CK-MB', 'Peak Troponin I', 'LDL-c', 'LVEF', 'Total cholesterol (at NPO)', 'Peak CK', 'LVED', 'LVESD']
+# minimum_cols : ['LVEF', 'LVEDV', 'LVED', 'WT', 'LVESD']
+
+metric : "accuracy_score"
+
+metric_params : []
+
+out_dim : 2
+
+task : binary
+
+test_size : 0.2
