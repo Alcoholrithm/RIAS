@@ -20,8 +20,8 @@ from netcal import scaling, binning
 from netcal.metrics import ECE
 
 import dice_ml
-
 import lime.lime_tabular
+import shap
 
 from .models import BaseModel
 from .misc.eval_metric import EvalMetric
@@ -340,7 +340,7 @@ class Runner(object):
         
         return dice_exp
     
-    def lime(self, sample: pd.Series) -> None:
+    def lime(self, sample: pd.Series):
         
         categorical_features = []
         for idx, col in enumerate(self.X.columns):
@@ -368,6 +368,10 @@ class Runner(object):
         print()
         return exp
 
+    def shap(self, X_test) -> shap._explanation.Explanation:
+        self.explainer = shap.Explainer(self.model.model)
+        return self.explainer
+    
     def save_model(self) -> None:
         pass
     
