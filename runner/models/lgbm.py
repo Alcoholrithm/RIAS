@@ -17,13 +17,10 @@ class LGBM(BaseModel):
         if hparams == None:
             hparams = self.config.model.hparams
 
-        hparams["early_stopping_rounds"] = self.config.experiment.early_stopping_patience
-        hparams["verbose"] = self.config.model.verbose
-        hparams["n_jobs"] = self.config.experiment.n_jobs
+        hparams.update(self.config.model.additional_hparams)
+        self.lgbm_class = LGBMRegressor if self.config.experiment.task == "regression" else LGBMClassifier
         
-        lgbm_class = LGBMRegressor if self.config.experiment.task == "regression" else LGBMClassifier
-        
-        self.model = lgbm_class(**hparams)
+        self.model = self.lgbm_class(**hparams)
         
     
     def fit(self, X_train: pd.DataFrame, y_train: np.array, X_valid: pd.DataFrame, y_valid: np.array) -> None:
@@ -40,5 +37,5 @@ class LGBM(BaseModel):
         self.model.save_model(saving_path)
 
     def load_model(self) -> None:
-        self.model = LGBMClassifier()
+        self.model = self.lgbm_class()
         self.model.load_model(self.config.model.model_path)

@@ -26,7 +26,6 @@ class PytorchTabularBase(BaseModel, ABC):
         categorical_cols = kwargs["categorical_cols"]
         super().__init__(config)
         
-        os.environ["CUDA_VISIBLE_DEVICES"]=",".join(map(str, self.config.model.gpus))
         
         if self.config.experiment.optuna.direction == 'maximize':
             metric_mode = 'max'
@@ -132,27 +131,35 @@ class PytorchTabularBase(BaseModel, ABC):
     
     def predict(self, 
                 X_test: pd.DataFrame = None,
-                return_proba: bool = False
+                return_proba: bool = False,
+                ret_logits: bool = False
         ) -> Union[Tuple[NDArray[np.int_], NDArray[np.float_]], NDArray[np.int_]]:
         
         X_test = X_test.copy()
         
         X_test['target'] = [0 for _ in range(len(X_test))]
         
-        preds = self.model.predict(X_test)
-        preds, cnt = self.rename_prob_cols(preds)
-
-        prob_cols = []
-        for y in range(cnt):
-            prob_cols.append("%d_probability" % y) 
+        preds = self.model.predict(X_test, ret_logits = ret_logits)
+        
+        if return_proba or ret_logits:
+            preds, cnt = self.rename_prob_cols(preds)
+        
+            prob_cols = []
+            logits_cols = []
+            for y in range(cnt):
+                prob_cols.append("%d_probability" % y) 
+                logits_cols.append("logits_%d" % y)
             
         if return_proba:
             return preds[prob_cols].values
+        elif ret_logits:
+            return preds[logits_cols].values
         else:
             return preds['prediction']
-        
+    
+    
     def predict_proba(self, X_test: pd.DataFrame) -> np.array:
-        return self.predict(X_test, True)
+        return self.predict(X_test, return_proba=True)
     
     def save_model(self, 
                     saving_path: str = None

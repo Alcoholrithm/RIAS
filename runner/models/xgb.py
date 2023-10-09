@@ -16,11 +16,9 @@ class XGB(BaseModel):
         if hparams == None:
             hparams = self.config.model.hparams
 
-        hparams["early_stopping_rounds"] = self.config.experiment.early_stopping_patience
-        hparams["enable_categorical"] = True
-        hparams["n_jobs"] = self.config.experiment.n_jobs
-        xgb_class = XGBRegressor if self.config.experiment.task == "regression" else XGBClassifier
-        self.model = xgb_class(**hparams)
+        hparams.update(self.config.model.additional_hparams)
+        self.xgb_class = XGBRegressor if self.config.experiment.task == "regression" else XGBClassifier
+        self.model = self.xgb_class(**hparams)
         
     
     def fit(self, X_train: pd.DataFrame, y_train: np.array, X_valid: pd.DataFrame, y_valid: np.array) -> None:
@@ -37,7 +35,7 @@ class XGB(BaseModel):
         self.model.save_model(saving_path)
 
     def load_model(self) -> None:
-        self.model = XGBClassifier()
+        self.model = self.xgb_class()
         self.model.load_model(self.config.model.model_path)
         
     def __call__(self, X_test: pd.DataFrame) -> np.array:

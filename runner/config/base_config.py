@@ -8,8 +8,8 @@ base_config.model.model_class = None
 base_config.model.hparams: Dict[str, Any] = None
 base_config.model.search_range = None
 base_config.model.model_path = None
-
 base_config.model.fit_params = {}
+base_config.model.additional_hparams = {}
 
 base_config.experiment = SimpleNamespace()
 base_config.experiment.random_seed = 42

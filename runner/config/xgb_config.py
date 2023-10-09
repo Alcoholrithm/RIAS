@@ -7,6 +7,10 @@ xgb_config.model.model_class = "XGB"
 
 xgb_config.model.fit_params["verbose"] = 0
 
+xgb_config.model.additional_hparams["n_jobs"] = xgb_config.experiment.n_jobs
+xgb_config.model.additional_hparams["enable_categorical"] = True
+xgb_config.model.additional_hparams["early_stopping_rounds"] = xgb_config.experiment.early_stopping_patience
+
 xgb_config.model.search_range = {
                                     'max_leaves' : ['suggest_int', ['max_leaves', 300, 4000]],
                                     'n_estimators' : ['suggest_int', ['n_estimators', 10, 3000]],

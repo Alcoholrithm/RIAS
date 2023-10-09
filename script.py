@@ -56,7 +56,7 @@ def main():
     
     config = prepare_config(args, data_config)
 
-    runner = prepare_runner(args, config, data, label, continuous_cols, categorical_cols)
+    runner = prepare_runner(config, data, label, continuous_cols, categorical_cols)
 
     runner.train()
     
@@ -69,8 +69,7 @@ def main():
     
     if args.use_lime:
         import random
-        runner.lime(X_test[y_test == 1].iloc[3].values)
-        # runner.lime(X_test.iloc[random.randint(0, len(X_test))].values)
+        runner.lime(X_test.iloc[random.randint(0, len(X_test))].values)
 
 
 def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
@@ -113,6 +112,7 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
     
     if hasattr(config.model, 'gpus'):
         config.model.gpus = args.gpus if args.gpus is not None else config.model.gpus
+    config.model.hparams = args.hparams
     
     config.experiment.optuna.n_trials = args.n_trials if args.n_trials is not None else config.experiment.optuna.n_trials
     
@@ -125,7 +125,7 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
     config.lime.file = "temp.html"
     return config
 
-def prepare_runner(args: argparse.ArgumentParser, config: SimpleNamespace, X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str]) -> Runner:
+def prepare_runner(config: SimpleNamespace, X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str]) -> Runner:
     modellib = importlib.import_module('runner.models')
     model_class = getattr(modellib, config.model.model_class)
 

@@ -39,6 +39,9 @@ class Runner(object):
         self.model = None
         self.calibrator = None
         
+        if hasattr(self.config.model, 'gpus'):
+            os.environ["CUDA_VISIBLE_DEVICES"]=",".join(map(str, config.model.gpus))
+        
         self.X = X
         self.y = y
         
@@ -289,7 +292,10 @@ class Runner(object):
     def train(self) -> None:
         if self.config.model.hparams is None:
             self.config.model.hparams = self.get_hparams()
-        
+            
+        if isinstance(self.config.model.hparams, str):
+            self.config.model.hparams = pickle.load(open(self.config.model.hparams, 'rb'))
+            
         model_params = {
             "config" : self.config,
             "continuous_cols" : self.continuous_cols,
@@ -331,6 +337,8 @@ class Runner(object):
         dice_exp = exp.generate_counterfactuals(X_test, total_CFs=self.config.dice.total_CFs, desired_class=self.config.dice.desired_class, **self.config.dice.additional_kwargs)
 
         dice_exp.visualize_as_dataframe()
+        
+        return dice_exp
     
     def lime(self, sample: pd.Series) -> None:
         
