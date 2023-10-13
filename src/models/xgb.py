@@ -31,11 +31,17 @@ class XGB(BaseModel):
     def predict_proba(self, X_test: pd.DataFrame) -> np.array:
         return self.model.predict_proba(X_test)
     
-    def save_model(self, saving_path: str = None) -> str:
+    def save_model(self, saving_path: str = None) -> None:
+        assert saving_path is not None, "saving_path cannot be None"
+        
+        if saving_path.split('.')[-1] != 'json':
+            saving_path += '.json'
+            
         self.model.save_model(saving_path)
 
     def load_model(self) -> None:
         self.model = self.xgb_class()
+        
         self.model.load_model(self.config.model.model_path)
         
     def __call__(self, X_test: pd.DataFrame) -> np.array:

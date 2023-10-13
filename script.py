@@ -20,6 +20,8 @@ from src.models import BaseModel
 from sklearn.metrics import f1_score, recall_score, accuracy_score, confusion_matrix, accuracy_score
 from sklearn.metrics import roc_auc_score, recall_score, average_precision_score
 
+from kamir import KamirDataModule
+
 def main():
     parser = argparse.ArgumentParser(add_help=True)
 
@@ -34,6 +36,10 @@ def main():
 
     parser.add_argument('--save_hparams', action="store_true")
     parser.add_argument('--save_data', action='store_true')
+    
+    parser.add_argument('--save_model', action='store_true')
+    parser.add_argument('--model_path', type=str, default=None)
+    
     parser.add_argument('--gpus', nargs='+', default=None, type = int)
     
     parser.add_argument('--use_dice', action="store_true")
@@ -42,6 +48,7 @@ def main():
     parser.add_argument('--dice_desired', type=int, default = 0)
     
     parser.add_argument('--use_lime', action="store_true")
+    parser.add_argument('--use_shap', action='store_true')
     # parser.add_argument('--lime_class_names', type=List[str], default=None)
     
     parser.add_argument('--hparams', type=str, default = None, help="The location of the cached optimal hyperparameters")
@@ -59,15 +66,22 @@ def main():
 
     runner = prepare_runner(config, data, label, continuous_cols, categorical_cols, True if config.experiment.calibrator is not None else False)
 
-    runner.train()
+    if args.model_path is None:
+        runner.train()
+    else:
+        runner.config.model.model_path = args.model_path
+        runner.load_model()
     
+    if args.save_model:
+        runner.save_model()
     # if config.experiment.calibrator is not None:
         # runner.init_calibrator()
     runner.test(X_test, y_test, KamirEvalMetric())
     
-    runner.init_shap_explainer()
-    #runner.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1)
-    runner.report_pred(X_test[(y_test == 1)].iloc[10], 1, save=True)
+    if args.use_shap:
+        runner.init_shap_explainer()
+        #runner.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1)
+        runner.report_pred(X_test[(y_test == 1)].iloc[10], 1, save=True)
     
     if args.use_dice:
         runner.dice(X_test[(y_test == 1)].iloc[10])
@@ -81,8 +95,8 @@ def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array,
         data_config = yaml.load(f, Loader=yaml.FullLoader)
         data_config = SimpleNamespace(**data_config)
 
-    datalib = importlib.import_module('src.data_utils')
-    datamodule = getattr(datalib, data_config.data_module)(args.data_config, data_config)
+    # datalib = importlib.import_module('src.data_utils')
+    datamodule = KamirDataModule(args.data_config, data_config)
     
     data, label, continuous_cols, categorical_cols = datamodule.prepare_data(args.save_data)
 

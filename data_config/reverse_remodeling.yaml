@@ -2,7 +2,7 @@ data_module : 'KamirDataModule'
 
 file_path : '../datasets/kamir/KAMIR-V 1Y FU DATA_Cumulative Death_20220124_변수정리.xlsx'
 
-dataset_path : './data/2023_06_29-19_07_46-reverse_remodeling.pickle'
+dataset_path : './data/2023_10_13-17_06_30-reverse_remodeling.pickle'
 
 categorical_cols_idx : [38, 41, 42, 47, 51, 55, 73, 88, 89, 98, 102, 113, 115, 116, 141, 164, 165, 166, 167, 172, 325]
 binary_cols_idx : [5, 20, 44, 48, 52, 56, 60, 64, 68, 81, 99, 104, 108, 109, 110, 111, 112, 176, 194, 195, 199, 201, 209, 244,256, 252, 254]

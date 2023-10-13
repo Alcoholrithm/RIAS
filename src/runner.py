@@ -193,14 +193,15 @@ class Runner(object):
         for k, v in self.config.model.search_range.items():
             hparams[k] = getattr(trial, v[0])(*v[1])
 
-        model_params = {
-            "config" : self.config,
-            "hparams" : hparams,
-            "continuous_cols" : self.continuous_cols,
-            "categorical_cols" : self.categorical_cols
-        }
-        # model = self.model_class(config = self.config, hparams = hparams)
-        model = self.model_class(**model_params)
+        model = self.get_model(hparams)
+        # model_params = {
+        #     "config" : self.config,
+        #     "hparams" : hparams,
+        #     "continuous_cols" : self.continuous_cols,
+        #     "categorical_cols" : self.categorical_cols
+        # }
+        # # model = self.model_class(config = self.config, hparams = hparams)
+        # model = self.model_class(**model_params)
 
         if train_idx is None or valid_idx is None:
             X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
@@ -300,6 +301,17 @@ class Runner(object):
 
         return proba
     
+    def get_model(self, hparams: Dict[str, Any] = None) -> None:
+        
+        model_params = {
+            "config" : self.config,
+            "continuous_cols" : self.continuous_cols,
+            "categorical_cols" : self.categorical_cols,
+            "hparams" : hparams
+        }
+
+        return self.model_class(**model_params)
+        
     def train(self) -> None:
         if self.config.model.hparams is None:
             self.config.model.hparams = self.get_hparams()
@@ -307,14 +319,15 @@ class Runner(object):
         if isinstance(self.config.model.hparams, str):
             self.config.model.hparams = pickle.load(open(self.config.model.hparams, 'rb'))
             
-        model_params = {
-            "config" : self.config,
-            "continuous_cols" : self.continuous_cols,
-            "categorical_cols" : self.categorical_cols,
-            "hparams" : None
-        }
+        # model_params = {
+        #     "config" : self.config,
+        #     "continuous_cols" : self.continuous_cols,
+        #     "categorical_cols" : self.categorical_cols,
+        #     "hparams" : None
+        # }
 
-        self.model = self.model_class(**model_params)
+        # self.model = self.model_class(**model_params)
+        self.model = self.get_model()
         
         self.set_random_seed()
         X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
@@ -409,8 +422,12 @@ class Runner(object):
         X_test = X_test.astype(self.X.dtypes)
         
         return X_test
-    def save_model(self) -> None:
-        pass
+    
+    def save_model(self, save_path: str = 'checkpoints') -> None:
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+        self.model.save_model(f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}")
     
     def load_model(self) -> None:
-        pass
+        self.model = self.get_model(hparams={})
+        self.model.load_model()

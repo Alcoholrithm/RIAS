@@ -65,8 +65,11 @@ class PytorchTabularBase(BaseModel, ABC):
             hparams = self.config.model.hparams
         else:
             hparams = kwargs["hparams"]
-            
-        self.model = self.get_model(hparams)
+        
+        if hparams == {}:
+            self.load_model()
+        else:
+            self.model = self.get_model(hparams)
         
     @abstractmethod
     def get_model_config(self, 

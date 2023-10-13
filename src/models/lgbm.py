@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Dict, Any
 from lightgbm import LGBMClassifier, LGBMRegressor
 from copy import deepcopy
+import pickle
 
 class LGBM(BaseModel):
     def __init__(self, **kwargs) -> None:
@@ -34,8 +35,9 @@ class LGBM(BaseModel):
         return self.model.predict_proba(X_test)
     
     def save_model(self, saving_path: str = None) -> str:
-        self.model.save_model(saving_path)
+        if saving_path.split('.')[-1] != 'pickle':
+            saving_path += '.pickle'
+        pickle.dump(self.model, open(saving_path, 'wb'))
 
     def load_model(self) -> None:
-        self.model = self.lgbm_class()
-        self.model.load_model(self.config.model.model_path)
+        self.model = pickle.load(open(self.config.model.model_path, 'rb'))

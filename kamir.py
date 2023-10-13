@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from .base_datamodule import DataModule
+from src.data_utils.base_datamodule import DataModule
 from tqdm import tqdm
 import pickle
 from types import SimpleNamespace
