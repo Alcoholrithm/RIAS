@@ -74,14 +74,16 @@ def main():
     
     if args.save_model:
         runner.save_model()
-    # if config.experiment.calibrator is not None:
-        # runner.init_calibrator()
+        
+    if config.experiment.calibrator is not None and args.model_path is not None:
+        runner.init_calibrator()
+        
     runner.test(X_test, y_test, KamirEvalMetric())
     
     if args.use_shap:
         runner.init_shap_explainer()
         #runner.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1)
-        runner.report_pred(X_test[(y_test == 1)].iloc[10], 1, save=True)
+        runner.report_pred(X_test[(y_test == 1)].iloc[15], 1, save=True)
     
     if args.use_dice:
         runner.dice(X_test[(y_test == 1)].iloc[10])

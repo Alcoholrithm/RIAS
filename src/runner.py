@@ -194,14 +194,6 @@ class Runner(object):
             hparams[k] = getattr(trial, v[0])(*v[1])
 
         model = self.get_model(hparams)
-        # model_params = {
-        #     "config" : self.config,
-        #     "hparams" : hparams,
-        #     "continuous_cols" : self.continuous_cols,
-        #     "categorical_cols" : self.categorical_cols
-        # }
-        # # model = self.model_class(config = self.config, hparams = hparams)
-        # model = self.model_class(**model_params)
 
         if train_idx is None or valid_idx is None:
             X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
@@ -319,14 +311,6 @@ class Runner(object):
         if isinstance(self.config.model.hparams, str):
             self.config.model.hparams = pickle.load(open(self.config.model.hparams, 'rb'))
             
-        # model_params = {
-        #     "config" : self.config,
-        #     "continuous_cols" : self.continuous_cols,
-        #     "categorical_cols" : self.categorical_cols,
-        #     "hparams" : None
-        # }
-
-        # self.model = self.model_class(**model_params)
         self.model = self.get_model()
         
         self.set_random_seed()
@@ -402,16 +386,20 @@ class Runner(object):
         self.expected_pred_proba = self.predict_proba(self.X).mean(0)
         
     def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> None:
-        sample_df = pd.DataFrame(sample.values.reshape(1, -1), columns=self.X.columns)
-        shap_value = self.shap_explainer(sample_df).values
+        sample = self.check_input(sample)
+        shap_value = self.shap_explainer(sample).values
 
-        plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
+        # plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
+        plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=False, show=False)
 
         if save:
             if save_path is None:
-                save_path = self.start_time + '.png'
+                save_path = self.start_time + '.html'
+            shap.save_html(save_path, plot)
+            # if save_path is None:
+            #     save_path = self.start_time + '.png'
             
-            plt.savefig(save_path, bbox_inches='tight')
+            # plt.savefig(save_path, bbox_inches='tight')
         return plot
     
     def check_input(self, X_test) -> pd.DataFrame:

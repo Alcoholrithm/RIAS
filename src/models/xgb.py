@@ -43,6 +43,3 @@ class XGB(BaseModel):
         self.model = self.xgb_class()
         
         self.model.load_model(self.config.model.model_path)
-        
-    def __call__(self, X_test: pd.DataFrame) -> np.array:
-        return self.predict(X_test)

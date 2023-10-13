@@ -7,9 +7,11 @@ class BaseModel(ABC):
     def __init__(self, config: SimpleNamespace) -> None:
         self.config = config
     
+    @abstractmethod
     def fit(self, X_train: pd.DataFrame, y_train: np.array, X_valid: pd.DataFrame, y_valid: np.array) -> None:
         pass
     
+    @abstractmethod
     def predict(self, X_test: pd.DataFrame) -> np.array:
         pass
     
