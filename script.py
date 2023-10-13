@@ -81,7 +81,7 @@ def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array,
         data_config = yaml.load(f, Loader=yaml.FullLoader)
         data_config = SimpleNamespace(**data_config)
 
-    datalib = importlib.import_module('runner.data_utils')
+    datalib = importlib.import_module('src.data_utils')
     datamodule = getattr(datalib, data_config.data_module)(args.data_config, data_config)
     
     data, label, continuous_cols, categorical_cols = datamodule.prepare_data(args.save_data)
@@ -95,7 +95,7 @@ def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array,
     return data, label, X_test, y_test, continuous_cols, categorical_cols, data_config
 
 def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -> SimpleNamespace:
-    configlib = importlib.import_module('runner.config')
+    configlib = importlib.import_module('src.config')
     config = getattr(configlib, args.config)
 
     if args.hparams is not None:
@@ -130,7 +130,7 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
     return config
 
 def prepare_runner(config: SimpleNamespace, X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str], calibrate: bool) -> Runner:
-    modellib = importlib.import_module('runner.models')
+    modellib = importlib.import_module('src.models')
     model_class = getattr(modellib, config.model.model_class)
 
     runner = Runner(config = config, model_class=model_class, X=X, y = y, continuous_cols=continuous_cols, categorical_cols=categorical_cols, calibrate=calibrate)
