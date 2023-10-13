@@ -40,7 +40,7 @@ class KamirDataModule(DataModule):
         
         return data
 
-    def prepare_data(self) -> Tuple[pd.DataFrame, pd.Series, List[str], List[str]]:
+    def prepare_data(self, save_data: bool = False) -> Tuple[pd.DataFrame, pd.Series, List[str], List[str]]:
 
         if os.path.exists(self.config.dataset_path):
             with open(self.config.dataset_path, 'rb') as f:
@@ -96,9 +96,11 @@ class KamirDataModule(DataModule):
 
         data[categorical_cols] = data[categorical_cols].astype('category')
 
-        # if self.config.runner_option.save_data:
-        # self.save_data(data, label.values, continuous_cols = continuous_cols, categorical_cols = categorical_cols)
-
+        data = data.loc[label.index]
+        
+        if save_data:
+            self.save_data(data, label.values, continuous_cols = continuous_cols, categorical_cols = categorical_cols)
+        
         return data, label.values, continuous_cols, categorical_cols
 
     def get_6M(self, 

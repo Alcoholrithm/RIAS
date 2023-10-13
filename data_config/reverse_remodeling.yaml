@@ -1,6 +1,6 @@
 data_module : 'KamirDataModule'
 
-file_path : '../kamir/KAMIR-V 1Y FU DATA_Cumulative Death_20220124_변수정리.xlsx'
+file_path : '../datasets/kamir/KAMIR-V 1Y FU DATA_Cumulative Death_20220124_변수정리.xlsx'
 
 dataset_path : './data/2023_06_29-19_07_46-reverse_remodeling.pickle'
 
@@ -73,7 +73,7 @@ minimum_cols : ['LVESV', 'Peak CK-MB', 'Peak Troponin I', 'LDL-c', 'LVEF', 'Tota
 # minimum_cols : ['LVEF', 'LVEDV', 'LVED', 'WT', 'LVESD']
 
 metric : "accuracy_score"
-
+"
 metric_params : []
 
 out_dim : 2

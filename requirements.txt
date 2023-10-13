@@ -8,7 +8,7 @@ dice_ml
 tensorflow
 lime
 pytorch_tabular
-xgboost
+xgboost==2.0.0
 lightgbm
 tqdm
-shap
+shap==0.42.1

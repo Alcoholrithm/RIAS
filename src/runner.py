@@ -22,13 +22,14 @@ from netcal.metrics import ECE
 import dice_ml
 import lime.lime_tabular
 import shap
-
+import matplotlib.pyplot as plt
+        
 from .models import BaseModel
 from .misc.eval_metric import EvalMetric
 
 class Runner(object):
     def __init__(self, config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array,
-                    continuous_cols: List[str], categorical_cols: List[str]) -> None:
+                    continuous_cols: List[str], categorical_cols: List[str], calibrate: bool = False) -> None:
         
         self.start_time = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         
@@ -37,6 +38,7 @@ class Runner(object):
         self.continuous_cols = continuous_cols
         self.categorical_cols = categorical_cols
         self.model = None
+        self.calibrate = calibrate
         self.calibrator = None
         
         if hasattr(self.config.model, 'gpus'):
@@ -108,7 +110,7 @@ class Runner(object):
         assert self.model is not None, "Must have trained model to calibrate its confidence"
         
         self.set_random_seed()
-        X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
+        _, X_valid, _, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
         
         self.ece = ECE(self.config.experiment.ece_bins)
 
@@ -283,11 +285,20 @@ class Runner(object):
     
     def predict_proba(self, X_test: pd.DataFrame) -> np.array:
         assert self.model is not None, "Must train the model"
-        if type(X_test) == np.ndarray:
-            X_test = pd.DataFrame(X_test.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
-        X_test = X_test.astype(self.X.dtypes)
+        X_test = self.check_input(X_test)
 
-        return self.model.predict_proba(X_test)
+        proba = self.model.predict_proba(X_test)
+        
+        if self.calibrate:
+            proba = self.calibrator.transform(proba)
+        
+        if len(proba.shape) == 1:
+            _proba = np.zeros((len(X_test), 2))
+            _proba[:, 0] = 1 - proba
+            _proba[:, 1] = proba
+            proba = _proba
+
+        return proba
     
     def train(self) -> None:
         if self.config.model.hparams is None:
@@ -312,6 +323,9 @@ class Runner(object):
         preds = self.model.predict(X_valid)
         
         print("Validation Score: %.4f" % self.get_score(y_valid, preds))
+        
+        if self.calibrate:
+            self.init_calibrator()
     
     def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: EvalMetric = None) -> None:
         if eval_metric is None:
@@ -322,6 +336,8 @@ class Runner(object):
     
     def dice(self, X_test: pd.DataFrame) -> None:
 
+        X_test = self.check_input(X_test)
+        
         dice_data = self.X.copy()  
         dice_data["target"] = self.y
         
@@ -348,7 +364,7 @@ class Runner(object):
                 categorical_features.append(idx)
                 
         print("########## The result of lime for the given sample ##########")
-        explainer = lime.lime_tabular.LimeTabularExplainer(self.X.values, 
+        self.lime_explainer = lime.lime_tabular.LimeTabularExplainer(self.X.values, 
                                                         feature_names=self.X.columns, 
                                                         class_names=self.config.lime.class_names, 
                                                         categorical_features=categorical_features, 
@@ -359,7 +375,7 @@ class Runner(object):
                                                         random_state = self.config.experiment.random_seed,
                                                         **self.config.lime.kwargs)
 
-        exp = explainer.explain_instance(
+        exp = self.lime_explainer.explain_instance(
                                             sample, 
                                             self.predict_proba, 
                                             num_features=self.X.shape[-1] if self.config.lime.num_features is None else self.config.lime.num_features)
@@ -368,10 +384,31 @@ class Runner(object):
         print()
         return exp
 
-    def shap(self, X_test) -> shap._explanation.Explanation:
-        self.explainer = shap.Explainer(self.model.model)
-        return self.explainer
+    def init_shap_explainer(self) -> shap._explanation.Explanation:
+        self.shap_explainer = shap.Explainer(self.predict_proba, masker=self.X, algorithm='permutation', seed = self.random_seed)
+        self.expected_pred_proba = self.predict_proba(self.X).mean(0)
+        
+    def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> None:
+        sample_df = pd.DataFrame(sample.values.reshape(1, -1), columns=self.X.columns)
+        shap_value = self.shap_explainer(sample_df).values
+
+        plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
+
+        if save:
+            if save_path is None:
+                save_path = self.start_time + '.png'
+            
+            plt.savefig(save_path, bbox_inches='tight')
+        return plot
     
+    def check_input(self, X_test) -> pd.DataFrame:
+        if type(X_test) == np.ndarray:
+            X_test = pd.DataFrame(X_test.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
+        elif isinstance(X_test, pd.Series):
+            X_test = pd.DataFrame(X_test.values.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
+        X_test = X_test.astype(self.X.dtypes)
+        
+        return X_test
     def save_model(self) -> None:
         pass
     
