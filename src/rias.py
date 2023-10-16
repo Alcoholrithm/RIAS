@@ -442,7 +442,12 @@ class RIAS(object):
         decision_mapper = self.feature_selector.create_mapping_of_features_to_attribute(maps=['Tentative','Rejected','Accepted', 'Shadow'])
         self.feature_importances['Decision'] = self.feature_importances['Features'].map(decision_mapper)
         self.feature_importances = self.feature_importances.drop(index = [i for i in range(len(self.feature_importances) - 1, len(self.feature_importances) - 5, -1)], axis=0)
-        self.feature_importances = self.feature_importances.sort_values(by='Average Feature Importance',ascending=False)
+        
+        self.feature_importances["Decision"] = self.feature_importances["Decision"].apply(lambda x : x if x != "Rejected" else "_Rejected")
+        self.feature_importances = self.feature_importances.sort_values(by=["Decision", "Average Feature Importance"], ascending=[True, False])
+        self.feature_importances["Decision"] = self.feature_importances["Decision"].apply(lambda x : x if x != "_Rejected" else "Rejected")
+        
+        # self.feature_importances = self.feature_importances.sort_values(by='Average Feature Importance',ascending=False)
         self.feature_importances.reset_index(drop=True, inplace=True)
         
     def report_feature_importance(self, report_path: str = 'feature_importance') -> None:
@@ -494,10 +499,23 @@ class RIAS(object):
         self.model = self.get_model(hparams={})
         self.model.load_model(model_path)
 
+    def save_shap(self, shap_path: str = None) -> None:
+        if shap_path == None:
+            self.shap_path = f"./shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle"
+        else:
+            self.shap_path = shap_path
+            self.shap_explainer.save(open(self.shap_path, 'wb'))
+            
+        
+    def load_shap(self, shap_path: str = None) -> None:
+        
+        assert shap_path != None, "Shap path cannot be None"
+        
+        self.shap_explainer = shap.PermutationExplainer.load(open(shap_path, 'rb'))
+        
     def save_rias(self, save_path: str = "./") -> None:
         if self.shap_explainer is not None:
-            self.shap_path = f"{save_path}/shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle"
-            self.shap_explainer.save(open(self.shap_path, 'wb'))
+            self.save_shap(f"{save_path}/shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle")
             self.shap_explainer = None
         
         self.model_path = self.save_model()
@@ -505,6 +523,8 @@ class RIAS(object):
 
         pickle.dump(self, open(f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle", 'wb'))
         
+        self.load_model(self.model_path)
+        self.load_shap(self.shap_path)
     
     @staticmethod
     def load_rias(path: str) -> None:
@@ -513,7 +533,8 @@ class RIAS(object):
         del rias.model_path
 
         if rias.shap_path is not None:
-            rias.shap_explainer = shap.PermutationExplainer.load(open(rias.shap_path, 'rb'))
+            rias.load_shap(rias.shap_path)
             del rias.shap_path
+            
         rias.set_random_seed()
         return rias
