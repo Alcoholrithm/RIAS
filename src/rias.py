@@ -43,6 +43,7 @@ class RIAS(object):
         self.calibrator = None
         
         self.shap_explainer = None
+        self.shap_path = None
         self.feature_selector = None
 
         if hasattr(self.config.model, 'gpus'):
@@ -453,7 +454,7 @@ class RIAS(object):
             
         self.feature_selector.results_to_csv(f'{report_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.csv')
     
-    def report_recursive_feature_elimination(self, _X_test: pd.DataFrame, _y_test: np.array, eval_metric = None, min_features = None):
+    def report_recursive_feature_elimination(self, _X_test: pd.DataFrame, _y_test: np.array, eval_metric = None, min_features = None) -> None:
         min_features = min_features if min_features is not None else (self.feature_importances["Decision"] == "Accepted").sum()
         
         base_X = self.X.copy()
