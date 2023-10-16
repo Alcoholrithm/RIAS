@@ -53,3 +53,11 @@ base_config.lime.discretize_continuous = True
 base_config.lime.kwargs = {} # for LimeTabularExplainer
 base_config.lime.num_features = None
 base_config.lime.file = None # The name of report file for given sample (*.html)
+
+
+base_config.experiment.borutashap = SimpleNamespace()
+base_config.experiment.borutashap.n_trials = 100
+base_config.experiment.borutashap.normalize = True
+base_config.experiment.borutashap.verbose = True
+base_config.experiment.borutashap.stratify = True
+base_config.experiment.borutashap.kwargs = {}

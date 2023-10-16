@@ -38,6 +38,11 @@ class LGBM(BaseModel):
         if saving_path.split('.')[-1] != 'pickle':
             saving_path += '.pickle'
         pickle.dump(self.model, open(saving_path, 'wb'))
+        
+        return saving_path
 
-    def load_model(self) -> None:
-        self.model = pickle.load(open(self.config.model.model_path, 'rb'))
+    def load_model(self, model_path: str = None) -> None:
+        if model_path is None:
+            self.model = pickle.load(open(self.config.model.model_path, 'rb'))
+        else:
+            self.model = pickle.load(open(model_path, 'rb'))

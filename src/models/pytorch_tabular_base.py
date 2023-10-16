@@ -168,6 +168,10 @@ class PytorchTabularBase(BaseModel, ABC):
                     saving_path: str = None
         ) -> None:
         self.model.save_model(saving_path)
+        return saving_path
     
-    def load_model(self) -> None:
-        self.model = TabularModel.load_from_checkpoint(self.config.model.model_path, strict=False)
+    def load_model(self, model_path: str = None) -> None:
+        if model_path is None:
+            self.model = TabularModel.load_from_checkpoint(self.config.model.model_path, strict=False)
+        else:
+            self.model = TabularModel.load_from_checkpoint(model_path, strict=False)

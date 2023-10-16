@@ -13,3 +13,4 @@ lightgbm==4.1.0
 tqdm==4.66.1
 shap==0.42.1
 lime==0.2.0.1
+BorutaShap==1.0.16

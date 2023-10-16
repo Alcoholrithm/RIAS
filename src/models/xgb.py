@@ -11,7 +11,7 @@ class XGB(BaseModel):
         config = kwargs["config"]
         hparams = kwargs["hparams"]
         super().__init__(config)
-        assert (hparams == None) or (self.config.model.hparams == None), "No model hyperparameters"
+        assert (hparams is not None) or (self.config.model.hparams is not None), "No model hyperparameters"
         
         if hparams == None:
             hparams = self.config.model.hparams
@@ -38,8 +38,12 @@ class XGB(BaseModel):
             saving_path += '.json'
             
         self.model.save_model(saving_path)
+        return saving_path
 
-    def load_model(self) -> None:
-        self.model = self.xgb_class()
+    def load_model(self, model_path: str = None) -> None:
         
-        self.model.load_model(self.config.model.model_path)
+        self.model = self.xgb_class()
+        if model_path is None:
+            self.model.load_model(self.config.model.model_path)
+        else:
+            self.model.load_model(model_path)

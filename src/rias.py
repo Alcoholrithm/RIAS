@@ -22,12 +22,13 @@ from netcal.metrics import ECE
 import dice_ml
 import lime.lime_tabular
 import shap
-import matplotlib.pyplot as plt
-        
+from BorutaShap import BorutaShap
+from tqdm import tqdm
+
 from .models import BaseModel
 from .misc.eval_metric import EvalMetric
 
-class Runner(object):
+class RIAS(object):
     def __init__(self, config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array,
                     continuous_cols: List[str], categorical_cols: List[str], calibrate: bool = False) -> None:
         
@@ -41,6 +42,9 @@ class Runner(object):
         self.calibrate = calibrate
         self.calibrator = None
         
+        self.shap_explainer = None
+        self.feature_selector = None
+
         if hasattr(self.config.model, 'gpus'):
             os.environ["CUDA_VISIBLE_DEVICES"]=",".join(map(str, config.model.gpus))
         
@@ -290,7 +294,7 @@ class Runner(object):
             _proba[:, 0] = 1 - proba
             _proba[:, 1] = proba
             proba = _proba
-
+        proba = np.clip(proba, a_max=1, a_min=0)
         return proba
     
     def get_model(self, hparams: Dict[str, Any] = None) -> None:
@@ -324,12 +328,16 @@ class Runner(object):
         if self.calibrate:
             self.init_calibrator()
     
-    def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: EvalMetric = None) -> None:
+    def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: EvalMetric = None) -> Dict[str, float]:
         if eval_metric is None:
             preds = self.model.predict(X_test)
-            print("Test Score: %.4f" % self.get_score(y_test, preds))
+            score = self.get_score(y_test, preds)
+            print("Test Score: %.4f" % score)
+            return {
+                "Test Score" : score
+            }
         else:
-            eval_metric(self.model, X_test, y_test)
+            return eval_metric(self.model, X_test, y_test)
     
     def dice(self, X_test: pd.DataFrame) -> None:
 
@@ -383,14 +391,20 @@ class Runner(object):
 
     def init_shap_explainer(self) -> shap._explanation.Explanation:
         self.shap_explainer = shap.Explainer(self.predict_proba, masker=self.X, algorithm='permutation', seed = self.random_seed)
-        self.expected_pred_proba = self.predict_proba(self.X).mean(0)
+        
+    def init_shap_base_values(self) -> None:
+        self.set_random_seed()
+        self.base_values = self.shap_explainer(self.X).base_values.mean(0)
         
     def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> None:
+        self.set_random_seed()
         sample = self.check_input(sample)
-        shap_value = self.shap_explainer(sample).values
-
+        shap_value = self.shap_explainer(sample)
+        
+        print(self.predict_proba(sample))
         # plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
-        plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=False, show=False)
+        # plot = shap.force_plot(shap_value.base_values[0][target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)
+        plot = shap.force_plot(self.base_values[target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)
 
         if save:
             if save_path is None:
@@ -411,11 +425,94 @@ class Runner(object):
         
         return X_test
     
+    def calculate_feature_importance(self) -> None:
+        self.feature_selector = BorutaShap(importance_measure='shap',
+                                        classification=False if self.config.experiment.task == "regression" else True,
+                                        )
+        
+        self.feature_selector.fit(X=self.X, y=self.y, n_trials=self.config.experiment.borutashap.n_trials, sample=False,
+            	        train_or_test = 'test', normalize=self.config.experiment.borutashap.normalize,
+		                verbose=self.config.experiment.borutashap.verbose, random_state = self.random_seed)
+        
+        self.feature_importances = pd.DataFrame(data={'Features':self.feature_selector.history_x.iloc[1:].columns.values,
+        'Average Feature Importance':self.feature_selector.history_x.iloc[1:].mean(axis=0).values,
+        'Standard Deviation Importance':self.feature_selector.history_x.iloc[1:].std(axis=0).values})
+        
+        decision_mapper = self.feature_selector.create_mapping_of_features_to_attribute(maps=['Tentative','Rejected','Accepted', 'Shadow'])
+        self.feature_importances['Decision'] = self.feature_importances['Features'].map(decision_mapper)
+        self.feature_importances = self.feature_importances.drop(index = [i for i in range(len(self.feature_importances) - 1, len(self.feature_importances) - 5, -1)], axis=0)
+        self.feature_importances = self.feature_importances.sort_values(by='Average Feature Importance',ascending=False)
+        self.feature_importances.reset_index(drop=True, inplace=True)
+        
+    def report_feature_importance(self, report_path: str = 'feature_importance') -> None:
+        
+        assert self.feature_selector is not None, "Run calculate_feature_importance first"
+        
+        if not os.path.exists(report_path):
+            os.makedirs(report_path, exist_ok=True)
+            
+        self.feature_selector.results_to_csv(f'{report_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.csv')
+    
+    def report_recursive_feature_elimination(self, _X_test: pd.DataFrame, _y_test: np.array, eval_metric = None, min_features = None):
+        min_features = min_features if min_features is not None else (self.feature_importances["Decision"] == "Accepted").sum()
+        
+        base_X = self.X.copy()
+        features = self.feature_importances["Features"].copy()
+        
+        self.rfe_results = {}
+        
+        X_test, y_test = _X_test.copy(), _y_test
+        
+        for n_features in tqdm(range(base_X.shape[-1], min_features - 1, -1)):
+            self.config.model.hparams = self.get_hparams()
+                
+            self.model = self.get_model()
+            
+            self.set_random_seed()
+            X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
+            self.model.fit(X_train, y_train, X_valid, y_valid)
+            
+            eval_results = self.test(X_test, y_test, eval_metric)
+            self.rfe_results[n_features] = (self.config.model.hparams, eval_results)
+            self.X.drop([features.iloc[-1]], axis=1, inplace=True)
+            X_test.drop([features.iloc[-1]], axis=1, inplace=True)
+            features.drop(index=len(features) - 1, inplace=True)
+        
+        self.X = base_X.copy()
+        
+        
+        
     def save_model(self, save_path: str = 'checkpoints') -> None:
         if not os.path.exists(save_path):
             os.mkdir(save_path)
-        self.model.save_model(f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}")
+        save_path = f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}"
+        save_path = self.model.save_model(save_path)
+        return save_path
     
-    def load_model(self) -> None:
+    def load_model(self, model_path = None) -> None:
         self.model = self.get_model(hparams={})
-        self.model.load_model()
+        self.model.load_model(model_path)
+
+    def save_rias(self, save_path: str = "./") -> None:
+        if self.shap_explainer is not None:
+            self.shap_path = f"{save_path}/shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle"
+            self.shap_explainer.save(open(self.shap_path, 'wb'))
+            self.shap_explainer = None
+        
+        self.model_path = self.save_model()
+        self.model = None
+
+        pickle.dump(self, open(f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle", 'wb'))
+        
+    
+    @staticmethod
+    def load_rias(path: str) -> None:
+        rias = pickle.load(open(path, 'rb'))
+        rias.load_model(rias.model_path)
+        del rias.model_path
+
+        if rias.shap_path is not None:
+            rias.shap_explainer = shap.PermutationExplainer.load(open(rias.shap_path, 'rb'))
+            del rias.shap_path
+        rias.set_random_seed()
+        return rias

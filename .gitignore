@@ -8,3 +8,6 @@ data/
 checkpoints/
 *.html
 *.png
+*.pickle
+report/
+feature_importance/

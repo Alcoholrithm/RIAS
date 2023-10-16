@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 import pickle
 import random
 
-from src.runner import Runner
+from src.rias import RIAS
 from src.misc.eval_metric import EvalMetric
 from src.models import BaseModel
 
@@ -34,12 +34,18 @@ def main():
     parser.add_argument('--calibrator', type=str, default=None, help="Calibration method for reliable confidence")
     parser.add_argument('--random_seed', type=int, default=0, help="A random seed for the experiment")
 
+    parser.add_argument('--report_feature_importance', action='store_true')
+    parser.add_argument('--report_rfe', action='store_true')
+    
     parser.add_argument('--save_hparams', action="store_true")
     parser.add_argument('--save_data', action='store_true')
+    parser.add_argument('--save_test_data', action='store_true')
     
     parser.add_argument('--save_model', action='store_true')
     parser.add_argument('--model_path', type=str, default=None)
     
+    parser.add_argument('--save_rias', action='store_true')
+    parser.add_argument('--load_rias', default=None, type=str)
     parser.add_argument('--gpus', nargs='+', default=None, type = int)
     
     parser.add_argument('--use_dice', action="store_true")
@@ -62,34 +68,53 @@ def main():
 
     data, label, X_test, y_test, continuous_cols, categorical_cols, data_config = prepare_data(args)
     
+    if args.save_test_data:
+        pickle.dump((X_test, y_test),open(f'{args.data_config}_test_data.pickle', 'wb'))
+        
     config = prepare_config(args, data_config)
 
-    runner = prepare_runner(config, data, label, continuous_cols, categorical_cols, True if config.experiment.calibrator is not None else False)
-
-    if args.model_path is None:
-        runner.train()
+    if args.load_rias is None:
+        rias = prepare_rias(config, data, label, continuous_cols, categorical_cols, True if config.experiment.calibrator is not None else False)
+        if args.model_path is None:
+            rias.train()
+        else:
+            rias.config.model.model_path = args.model_path
+            rias.load_model()
     else:
-        runner.config.model.model_path = args.model_path
-        runner.load_model()
+        rias = RIAS.load_rias(args.load_rias)
     
+        
     if args.save_model:
-        runner.save_model()
+        rias.save_model()
         
     if config.experiment.calibrator is not None and args.model_path is not None:
-        runner.init_calibrator()
+        rias.init_calibrator()
         
-    runner.test(X_test, y_test, KamirEvalMetric())
+    rias.test(X_test, y_test, KamirEvalMetric())
     
     if args.use_shap:
-        runner.init_shap_explainer()
-        #runner.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1)
-        runner.report_pred(X_test[(y_test == 1)].iloc[15], 1, save=True)
+        if args.load_rias is None:
+            rias.init_shap_explainer()
+            rias.init_shap_base_values()
+        # rias.report_pred(X_test.iloc[0], 1, save=True)
+        # rias.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1, save=True)
+        rias.report_pred(X_test[(y_test == 1)].iloc[15], 1, save=True)
     
     if args.use_dice:
-        runner.dice(X_test[(y_test == 1)].iloc[10])
+        rias.dice(X_test[(y_test == 1)].iloc[10])
 
     if args.use_lime:
-        runner.lime(X_test.iloc[random.randint(0, len(X_test))].values)
+        rias.lime(X_test.iloc[random.randint(0, len(X_test))].values)
+    
+    if args.report_feature_importance:
+        rias.calculate_feature_importance()
+        rias.report_feature_importance()
+    
+    if args.report_rfe:
+        rias.report_recursive_feature_elimination(X_test, y_test, KamirEvalMetric(), min_features=80)
+        
+    if args.save_rias:
+        rias.save_rias()
 
 
 def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
@@ -145,16 +170,16 @@ def prepare_config(args: argparse.ArgumentParser, data_config: Dict[str, Any]) -
     config.lime.file = "temp.html"
     return config
 
-def prepare_runner(config: SimpleNamespace, X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str], calibrate: bool) -> Runner:
+def prepare_rias(config: SimpleNamespace, X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str], calibrate: bool) -> RIAS:
     modellib = importlib.import_module('src.models')
     model_class = getattr(modellib, config.model.model_class)
 
-    runner = Runner(config = config, model_class=model_class, X=X, y = y, continuous_cols=continuous_cols, categorical_cols=categorical_cols, calibrate=calibrate)
+    rias = RIAS(config = config, model_class=model_class, X=X, y = y, continuous_cols=continuous_cols, categorical_cols=categorical_cols, calibrate=calibrate)
     
-    return runner
+    return rias
 
 class KamirEvalMetric(EvalMetric):
-    def eval(self, model: Type[BaseModel], X_test: pd.DataFrame, y_test: np.array):
+    def eval(self, model: Type[BaseModel], X_test: pd.DataFrame, y_test: np.array) -> Dict[str, float]:
         preds_proba = model.predict_proba(X_test)
         preds = preds_proba.argmax(1)
         
@@ -178,6 +203,17 @@ class KamirEvalMetric(EvalMetric):
         print("PPV Score: %.4f" % ppv)
         print("NPV Score: %.4f" % npv)
         print()
+        
+        return {
+            "F1 Score" : f1,
+            "ROC AUC Score" : roc,
+            "Specificity Score" : specificity,
+            "Sensitivity Score" : sensitivity,
+            "Accuracy Score" : accuracy,
+            "Precision Recall AUC Score" : pr_auc,
+            "PPV Score" : ppv,
+            "NPV Score" : npv
+        }
         
 if __name__ == "__main__":
     main()
