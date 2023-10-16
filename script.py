@@ -111,7 +111,7 @@ def main():
         rias.report_feature_importance()
     
     if args.report_rfe:
-        rias.report_recursive_feature_elimination(X_test, y_test, KamirEvalMetric(), min_features=80)
+        rias.report_recursive_feature_elimination(X_test, y_test, KamirEvalMetric())
         
     if args.save_rias:
         rias.save_rias()
