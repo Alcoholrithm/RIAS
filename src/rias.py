@@ -513,12 +513,15 @@ class RIAS(object):
         
         self.shap_explainer = shap.PermutationExplainer.load(open(shap_path, 'rb'))
         
-    def save_rias(self, save_path: str = "./") -> None:
+    def save_rias(self, save_path: str = "./rias_checkpoints") -> None:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path, exist_ok=True)
+            
         if self.shap_explainer is not None:
             self.save_shap(f"{save_path}/shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle")
             self.shap_explainer = None
         
-        self.model_path = self.save_model()
+        self.model_path = self.save_model(save_path)
         self.model = None
 
         pickle.dump(self, open(f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle", 'wb'))
