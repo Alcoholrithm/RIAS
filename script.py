@@ -114,7 +114,7 @@ def main():
         rias.report_recursive_feature_elimination(X_test, y_test, KamirEvalMetric())
         
     if args.save_rias:
-        rias.save_rias()
+        rias.save_rias(f'./rias_checkpoints/{args.random_seed}')
 
 
 def prepare_data(args: argparse.ArgumentParser) -> Tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
