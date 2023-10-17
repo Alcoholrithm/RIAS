@@ -433,7 +433,7 @@ class RIAS(object):
         
         self.feature_selector.fit(X=self.X, y=self.y, n_trials=self.config.experiment.borutashap.n_trials, sample=False,
             	        train_or_test = 'test', normalize=self.config.experiment.borutashap.normalize,
-		                verbose=self.config.experiment.borutashap.verbose, random_state = self.random_seed)
+		                verbose=self.config.experiment.borutashap.verbose, random_state = self.random_seed, stratify=self.y)
         
         self.feature_importances = pd.DataFrame(data={'Features':self.feature_selector.history_x.iloc[1:].columns.values,
         'Average Feature Importance':self.feature_selector.history_x.iloc[1:].mean(axis=0).values,
