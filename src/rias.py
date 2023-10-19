@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Dict, Any, Type, List
+from typing import Dict, Any, Type, List, Union
 from numpy.typing import NDArray
 
 import pandas as pd
@@ -31,6 +31,19 @@ from .misc.eval_metric import EvalMetric
 class RIAS(object):
     def __init__(self, config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array,
                     continuous_cols: List[str], categorical_cols: List[str], calibrate: bool = False) -> None:
+        """A reliable and interpretable AI system.
+
+        TODO
+        
+        Args:
+            config (SimpleNamespace): A namespace that has predefined options for RIAS.
+            model_class (Type[BaseModel]): The class of the model which uses in RIAS. It should be inherited BaseModel class of RIAS.
+            X (pd.DataFrame): A dataset which uses in RIAS.
+            y (np.array): A numpy array of the labels corresponding to X.
+            continuous_cols (List[str]): A list of continuous_cols columns in X.
+            categorical_cols (List[str]): A list of categorical columns in X.
+            calibrate (bool, optional): A flag that decide calibrate the prediction or not. Defaults to False.
+        """
         
         self.start_time = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         
@@ -64,13 +77,16 @@ class RIAS(object):
             
     
     def check_config(self):
-        ### To DO
+        """Check the given config is valid or not
+        """
         assert self.config.experiment.metric != None, "1"
         assert self.config.experiment.metric_params != None, "2"
         assert self.config.experiment.data_config != None, "3"
         assert self.config.experiment.optuna.direction != None, "4"
     
     def set_random_seed(self):
+        """Set random seeds as predefined random seed in config
+        """
         # Setting seed for Python's random module
         random.seed(self.random_seed )
 
@@ -96,7 +112,9 @@ class RIAS(object):
             pass
 
     def init_scorer(self) -> None:
-        """Init evaluation metric"""
+        """Initialize evaluation metric
+        The scorer must be supported by scikit-learn.metrics or torchmetrics.functional
+        """
         
         self.scorer_dict = {}
         
@@ -111,6 +129,10 @@ class RIAS(object):
             raise("Unknown Scorer")
     
     def init_calibrator(self):
+        """Initialize a calibrator for an ai model of RIAS
+        The calibrator is fitted to validation set based on ECE score.
+        It must be supported by netcal.scaling or netcal.binning.
+        """
         assert hasattr(scaling, self.config.experiment.calibrator) or hasattr(binning, self.config.experiment.calibrator), "Use only calibratior in netcal.scaling and netcal.binning"
         assert self.model is not None, "Must have trained model to calibrate its confidence"
         
@@ -164,7 +186,7 @@ class RIAS(object):
                     y_true: NDArray[np.int_], 
                     y_pred: NDArray[np.int_]
         ) -> float:
-        """Generates a score of the predicted result.
+        """Generates a score of the predicted result using scorer
 
         Args:
             y_true: Ground truth labels.
@@ -182,15 +204,15 @@ class RIAS(object):
                     train_idx: NDArray[np.int_]= None, 
                     valid_idx: NDArray[np.int_] = None
         ) -> float:
-        """Objective function for optuna
+        """Objective function for Optuna
 
         Args:
-            trial: A object which returns hyperparameters of a model of hyperparameter search trial.
-            train_idx: Indices of training data in self.X and self.y.
-            valid_idx: Indices of valid data in self.X and self.y.
+            trial (optuna.trial.Trial): A object which returns hyperparameters of a model of hyperparameter search trial.
+            train_idx (NDArray[np.int_], optional): Indices of training data in self.X and self.y. Defaults to None.
+            valid_idx (NDArray[np.int_], optional): Indices of valid data in self.X and self.y. Defaults to None.
         
         Returns:
-            A score of given hyperparameters.
+            float: A score of given hyperparameters.
         """
         self.set_random_seed()
         
@@ -219,7 +241,7 @@ class RIAS(object):
         Search the best hyperparameters for a given model using optuna. If the experiment using k-fold cross validation,
         optuna also use k-fold cross validation.
         Returns:
-            The best hyperparameters.
+            Dict[str, Any]: The best hyperparameters.
         """
         
         assert self.config.model.search_range is not None, "No search range for hyperparameter tunning"
@@ -228,10 +250,10 @@ class RIAS(object):
             """Objective function of optuna with k-fold cross validation.
 
             Args:
-                trial: A object which returns hyperparameters of a model of hyperparameter search trial.
+                trial (optuna.trial.Trial): A object which returns hyperparameters of a model of hyperparameter search trial.
             
             Returns:
-                Average score of hyperparameters over k-fold.
+                float: Average score of hyperparameters over k-fold.
             """
             fold = StratifiedKFold(n_splits=self.config.experiment.KFold, shuffle=True, random_state=self.random_seed)
             scores = []
@@ -267,7 +289,7 @@ class RIAS(object):
         """Saves the given hyperparameters.
 
         Args:
-            hparams: The hyperparameters to save.
+            hparams (Dict[str, Any]): The hyperparameters to save.
         """
         path = f'hparams/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle'
         
@@ -277,11 +299,46 @@ class RIAS(object):
         with open(path, 'wb') as f:
             pickle.dump(hparams, f)
     
+    def check_input(self, X_test: Union[pd.DataFrame, np.ndarray, pd.Series]) -> pd.DataFrame:
+        """Ensuring the X_test as pandas dataframe
+
+        Args:
+            X_test (Union[pd.DataFrame, np.ndarray, pd.Series]): The input data.
+
+        Returns:
+            pd.DataFrame: A pandas dataframe of X_test
+        """
+        if type(X_test) == np.ndarray:
+            X_test = pd.DataFrame(X_test.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
+        elif isinstance(X_test, pd.Series):
+            X_test = pd.DataFrame(X_test.values.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
+        X_test = X_test.astype(self.X.dtypes)
+        
+        return X_test
+    
     def predict(self, X_test: pd.DataFrame) -> np.array:
+        """Return prediction for given samples
+
+        Args:
+            X_test (pd.DataFrame): A set of samples to predict.
+
+        Returns:
+            np.array: A set of predictions
+        """
         assert self.model is not None, "Must train the model"
+        X_test = self.check_input(X_test)
+        
         return self.model.predict(X_test)
     
     def predict_proba(self, X_test: pd.DataFrame) -> np.array:
+        """Return predicted probabilities for each class for given samples
+
+        Args:
+            X_test (pd.DataFrame): A set of samples to predict their probabilities for each class.
+
+        Returns:
+            np.array: A numpy array of predicted probabilities
+        """
         assert self.model is not None, "Must train the model"
         X_test = self.check_input(X_test)
 
@@ -416,15 +473,6 @@ class RIAS(object):
             
             # plt.savefig(save_path, bbox_inches='tight')
         return plot
-    
-    def check_input(self, X_test) -> pd.DataFrame:
-        if type(X_test) == np.ndarray:
-            X_test = pd.DataFrame(X_test.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
-        elif isinstance(X_test, pd.Series):
-            X_test = pd.DataFrame(X_test.values.reshape((-1, X_test.shape[-1])), columns = self.X.columns)
-        X_test = X_test.astype(self.X.dtypes)
-        
-        return X_test
     
     def calculate_feature_importance(self) -> None:
         self.feature_selector = BorutaShap(importance_measure='shap',
