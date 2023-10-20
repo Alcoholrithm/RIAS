@@ -355,7 +355,15 @@ class RIAS(object):
         proba = np.clip(proba, a_max=1, a_min=0)
         return proba
     
-    def get_model(self, hparams: Dict[str, Any] = None) -> None:
+    def get_model(self, hparams: Dict[str, Any] = None) -> Type[BaseModel]:
+        """Return a model object according to the model class of RIAS
+
+        Args:
+            hparams (Dict[str, Any], optional): The hyperparameter for the model. Defaults to None.
+
+        Returns:
+            Type[BaseModel]: A model object.
+        """
         
         model_params = {
             "config" : self.config,
@@ -367,6 +375,8 @@ class RIAS(object):
         return self.model_class(**model_params)
         
     def train(self) -> None:
+        """_summary_
+        """
         if self.config.model.hparams is None:
             self.config.model.hparams = self.get_hparams()
             
@@ -387,6 +397,16 @@ class RIAS(object):
             self.init_calibrator()
     
     def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: EvalMetric = None) -> Dict[str, float]:
+        """_summary_
+
+        Args:
+            X_test (pd.DataFrame): _description_
+            y_test (np.array): _description_
+            eval_metric (EvalMetric, optional): _description_. Defaults to None.
+
+        Returns:
+            Dict[str, float]: _description_
+        """
         if eval_metric is None:
             preds = self.model.predict(X_test)
             score = self.get_score(y_test, preds)
@@ -398,7 +418,14 @@ class RIAS(object):
             return eval_metric(self.model, X_test, y_test)
     
     def dice(self, X_test: pd.DataFrame) -> None:
+        """_summary_
 
+        Args:
+            X_test (pd.DataFrame): _description_
+
+        Returns:
+            _type_: _description_
+        """
         X_test = self.check_input(X_test)
         
         dice_data = self.X.copy()  
@@ -418,48 +445,38 @@ class RIAS(object):
         dice_exp.visualize_as_dataframe()
         
         return dice_exp
-    
-    def lime(self, sample: pd.Series):
-        
-        categorical_features = []
-        for idx, col in enumerate(self.X.columns):
-            if col in self.categorical_cols:
-                categorical_features.append(idx)
-                
-        print("########## The result of lime for the given sample ##########")
-        self.lime_explainer = lime.lime_tabular.LimeTabularExplainer(self.X.values, 
-                                                        feature_names=self.X.columns, 
-                                                        class_names=self.config.lime.class_names, 
-                                                        categorical_features=categorical_features, 
-                                                        categorical_names=self.categorical_cols,
-                                                        verbose=self.config.lime.verbose , 
-                                                        mode="regression" if self.config.experiment.task == "regression" else "classification", 
-                                                        discretize_continuous=self.config.lime.discretize_continuous,
-                                                        random_state = self.config.experiment.random_seed,
-                                                        **self.config.lime.kwargs)
-
-        exp = self.lime_explainer.explain_instance(
-                                            sample, 
-                                            self.predict_proba, 
-                                            num_features=self.X.shape[-1] if self.config.lime.num_features is None else self.config.lime.num_features)
-
-        exp.save_to_file(self.config.lime.file)
-        print()
-        return exp
 
     def init_shap_explainer(self) -> shap._explanation.Explanation:
+        """_summary_
+
+        Returns:
+            shap._explanation.Explanation: _description_
+        """
         self.shap_explainer = shap.Explainer(self.predict_proba, masker=self.X, algorithm='permutation', seed = self.random_seed)
         
-    def init_shap_base_values(self) -> None:
+    def init_shap_values(self) -> None:
+        """_summary_
+        """
         self.set_random_seed()
-        self.base_values = self.shap_explainer(self.X).base_values.mean(0)
+        self.shap_values = self.shap_explainer(self.X)
+        self.base_values = self.shap_values.base_values.mean(0)
         
     def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> None:
+        """_summary_
+
+        Args:
+            sample (pd.Series): _description_
+            target (int, optional): _description_. Defaults to 0.
+            save (bool, optional): _description_. Defaults to False.
+            save_path (str, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
         self.set_random_seed()
         sample = self.check_input(sample)
         shap_value = self.shap_explainer(sample)
         
-        print(self.predict_proba(sample))
         # plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
         # plot = shap.force_plot(shap_value.base_values[0][target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)
         plot = shap.force_plot(self.base_values[target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)

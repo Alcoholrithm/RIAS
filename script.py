@@ -95,7 +95,7 @@ def main():
     if args.use_shap:
         if args.load_rias is None:
             rias.init_shap_explainer()
-            rias.init_shap_base_values()
+            rias.init_shap_values()
         # rias.report_pred(X_test.iloc[0], 1, save=True)
         # rias.report_pred(X_test.iloc[random.randint(0, len(X_test))], 1, save=True)
         rias.report_pred(X_test[(y_test == 1)].iloc[15], 1, save=True)
