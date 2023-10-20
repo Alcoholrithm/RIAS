@@ -375,7 +375,15 @@ class RIAS(object):
         return self.model_class(**model_params)
         
     def train(self) -> None:
-        """_summary_
+        """Train a model and initialize the calibrator if self.calibrate is True
+        
+        If there are given hyperparamters, train the model using them.
+        Else find out the optimized hyperparameters and train with them.
+        
+        The training dataset and validation datasets for training are derived from self.X and self.y. 
+        And they are automatically determined by the config.experiment.valid_size option.
+        
+        After, training procedure is the end, print the validation score and initialize the calibrator if self.calibrate is True
         """
         if self.config.model.hparams is None:
             self.config.model.hparams = self.get_hparams()
@@ -396,16 +404,19 @@ class RIAS(object):
         if self.calibrate:
             self.init_calibrator()
     
-    def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: EvalMetric = None) -> Dict[str, float]:
-        """_summary_
-
+    def test(self, X_test: pd.DataFrame, y_test: np.array, eval_metric: Type[EvalMetric] = None) -> Dict[str, float]:
+        """Test the trained model using given test dataset
+        
+        Evaluate the model using the given test dataset.
+        If the eval_metric is None, use the self.scorer.
+        
         Args:
-            X_test (pd.DataFrame): _description_
-            y_test (np.array): _description_
-            eval_metric (EvalMetric, optional): _description_. Defaults to None.
+            X_test (pd.DataFrame): A dataset to test the model.
+            y_test (np.array): A numpy array of the labels corresponding to X_test.
+            eval_metric (EvalMetric, optional): An object that inherits the EvalMetric class. Defaults to None.
 
         Returns:
-            Dict[str, float]: _description_
+            Dict[str, float]: An evaluation results using eval_metric or self.scorer.
         """
         if eval_metric is None:
             preds = self.model.predict(X_test)
@@ -417,14 +428,14 @@ class RIAS(object):
         else:
             return eval_metric(self.model, X_test, y_test)
     
-    def dice(self, X_test: pd.DataFrame) -> None:
-        """_summary_
+    def get_counterfactual_explanations(self, X_test: pd.DataFrame, total_CFs: int = 4, desired_class: int = 0, features_to_vary: Union[str, List[str]] = 'all', **kwargs) -> None:
+        """Return counterfactual explanations using DiCE using given samples
 
         Args:
-            X_test (pd.DataFrame): _description_
+            X_test (pd.DataFrame): The samples to find out counterfactual explanations.
 
         Returns:
-            _type_: _description_
+            _type_: Counterfactual explanations.
         """
         X_test = self.check_input(X_test)
         
@@ -440,38 +451,35 @@ class RIAS(object):
         exp = dice_ml.Dice(d,m)
         
 
-        dice_exp = exp.generate_counterfactuals(X_test, total_CFs=self.config.dice.total_CFs, desired_class=self.config.dice.desired_class, **self.config.dice.additional_kwargs)
+        dice_exp = exp.generate_counterfactuals(X_test, total_CFs=total_CFs, desired_class=desired_class, features_to_vary = features_to_vary, **kwargs)
 
         dice_exp.visualize_as_dataframe()
         
         return dice_exp
 
-    def init_shap_explainer(self) -> shap._explanation.Explanation:
-        """_summary_
-
-        Returns:
-            shap._explanation.Explanation: _description_
+    def init_shap_explainer(self) -> None:
+        """Initialize a shap explainer using the trained model of RIAS
         """
         self.shap_explainer = shap.Explainer(self.predict_proba, masker=self.X, algorithm='permutation', seed = self.random_seed)
         
-    def init_shap_values(self) -> None:
-        """_summary_
+    def calculate_shap_values(self) -> None:
+        """Calculate shapely values of self.X and saving them and their base_values
         """
         self.set_random_seed()
         self.shap_values = self.shap_explainer(self.X)
         self.base_values = self.shap_values.base_values.mean(0)
         
-    def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> None:
+    def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> shap.plots._force.AdditiveForceVisualizer:
         """_summary_
 
         Args:
-            sample (pd.Series): _description_
-            target (int, optional): _description_. Defaults to 0.
-            save (bool, optional): _description_. Defaults to False.
-            save_path (str, optional): _description_. Defaults to None.
+            sample (pd.Series): A sample to report its prediction.
+            target (int, optional): A target label. Defaults to 0.
+            save (bool, optional): A flag to save the result or not. Defaults to False.
+            save_path (str, optional): A save path to save the result. If save is False, save_path is ignored. Defaults to None.
 
         Returns:
-            _type_: _description_
+            shap.plots._force.AdditiveForceVisualizer: A force plot for a given sample.
         """
         self.set_random_seed()
         sample = self.check_input(sample)

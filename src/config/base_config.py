@@ -40,10 +40,10 @@ base_config.experiment.fast_dev_run = False
 base_config.dice = SimpleNamespace()
 base_config.dice.backend = None
 base_config.dice.func = None
-base_config.dice.total_CFs = 4
-base_config.dice.desired_class = None
-base_config.dice.features_to_vary = "all"
-base_config.dice.additional_kwargs = {} # for generate_counterfactuals
+# base_config.dice.total_CFs = 4
+# base_config.dice.desired_class = None
+# base_config.dice.features_to_vary = "all"
+# base_config.dice.additional_kwargs = {} # for generate_counterfactuals
 
 
 base_config.lime = SimpleNamespace()
