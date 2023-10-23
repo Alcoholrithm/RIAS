@@ -161,8 +161,14 @@ class KamirDataModule(DataModule):
                             data: pd.DataFrame, 
                             target_col: str
         ) -> pd.Series:
-        LVEs =  data[target_col].apply(lambda x : x.split('|') if type(x) == str else x)
-        return LVEs.apply(lambda x : float('.'.join([_.strip().strip('.') for _ in x])) if type(x) == list else x)
+        series =  data[target_col].apply(lambda x : x.split('|') if type(x) == str else x)
+        series = series.apply(lambda x : x[:2] if type(x) == list else x)
+        series = series.apply(lambda x : '.'.join([_.strip().strip('.') for _ in x]) if type(x) == list else x)
+        series = series.apply(lambda x : 0 if x =='.' else float(x))
+        return series
+        #series = series.apply(lambda x : 0 if x == '.' else x)
+        # series = series.apply(lambda x : '.'.join([_.strip().strip('.') for _ in x]) if type(x) == list else x)
+        return series.apply(lambda x : float('.'.join([_.strip().strip('.') for _ in x])) if type(x) == list else x)
     
     def get_bmi(self, 
                 data: pd.DataFrame
@@ -296,7 +302,7 @@ class KamirDataModule(DataModule):
 
         medicine_cols = []
         
-        temp = {
+        temp = { # Beta blocker
             'Bisoprolol' : ['Concor', '콩코르정', 'bisoprolol', 'cobis', 'conbloc',
                             'conocor', 'Bisoprolo', 'Combloc', 'Conbroc', 'conbolc'], 
             'Carvedilol' : ['Dilatrend', 'dilatrend SR', '딜라트렌(정)', '딜라트렌 에스알', 'carvedilol', 'carvelol', 'vasotrol',
@@ -317,7 +323,7 @@ class KamirDataModule(DataModule):
                 idxs = data.iloc[:, 370].str.upper().str.strip().str.contains(v.upper()).fillna(False)
                 data.loc[idxs, key] = self.percentage_to_float(data, 'Using Dose.6')[idxs]
         
-        temp = {
+        temp = { # ACEi
             'Perindopril' : ['Acertil', '아서틸', 'Perindopril',
                                 'aceril', 'acerrtil', 'acertik', 'acetil', 'acetril', 'acsrtil', 'aertil', 'acerpril'],
             'Captopril' : ['Capril', 'A-rin', 'Carfril', 'Captopril'],
@@ -336,7 +342,35 @@ class KamirDataModule(DataModule):
                 idxs = data.iloc[:, 373].str.upper().str.strip().str.contains(v.upper()).fillna(False)
                 data.loc[idxs, key] = self.percentage_to_float(data, 'Using Dose.7')[idxs]
 
-        temp = {
+        temp = { # ARB
+            'Irbesartan' : ['Aprovel', 'abeltan', 'coaprovel', 'irsartan', 'rovelito', '이르벨',
+                            'Isartan'],
+            'Candesartan' : ['Atacand', 'candemore', 'candesartan', 'cansarta', 'cantacan', 'machkhan', 'rotacand', 
+                                'atacnad', 'Aacand', 'Atancand', 'Atcand', 'Atacamd', 'CADARMORE', 'tacand tab'],
+            'Losartan' : ['Cozaar', 'cosca', 'cozaar plus', 'amosartan', 'amosartan plus', 'cozartan', 'cozartan plus', 'cozaar plus pro', 'losartam', 'nurotan plus', 'salotan', '로자신정', 
+                            'cozzar', 'Cozarr', 'sarlotan', 'cozzar plus pro', 'Saroltan', 'Cozar', 'lsartam', 'cazaar', 'coazzr',
+                            'Lorsartan', 'Lasartan', 'Amosrtan', ],
+            'Valsartan' : ['Diovan', 'Exforge', 'Exone', '디오패스정', '발사르텔정', 'codiovan', 'diopass', 'diovaltan', 'diovan FCT', 'diovan film coated', '필름코딩정', 'Entresto', 'livalo V', 'maxdio', 'Norvasc V', 'rovatitan', 'valosartan', 'valsabell', 'valsartan', 'valsaone plus', 'valsaor', 'valsarect', '디오반', '디오패스정', 
+                            'Doivan', 'Diova', 'vivacor', 'Valsarbell 40mg/T', 'valsarbell', 'DIIOVAN', 'rovatian', 'LivaloV', 'varsartan', 'Livaro V', 'rovastatin', 'rovatitian', 'Diosaltan', 'valsaltan', 'Rovaitian', 'norvasc-V', 'Livalov', 'valsarest', 'dioavan', 'Livallo V'],
+            'Telmisartan' : ['Telmitra', 'Twynsta', 'duowell', 'micardis', 'micardis plus', 'micatere', 'pritor', 'pritor plus', 'telmitrend', 'telmican', 'telminuvo', 'telmione', 'telmisartan', 'twotops', 
+                                'Telmira', 'prito', 'TELMITRREND', 'micaredis', '프리토플러스 정', 'tellmitrend', 'Teminuvo', 'Telisartan', '트윈스타 40/5'],
+            'Olmesartan' : ['Olmetec', 'Sevikar HCT', 'lodivikar', 'olmeact', 'olmesartan', 'olosta', 'losartan', 'osartan', 'seviduo', 'sevikar',
+                            '올로스타정20/10', 'Olsartan Tab 20mg', 'olmete', 'onesartan'],
+            'Fimasartan' : ['Dukarb', 'Fimarsartan', 'kanarb', 'lacor', 
+                            'Fimasartan', 'KNARB', 'fimasartan potassium', 'cukarb', 'Kanab'],
+            'Axilsartan' : ['Edarbi', 'Edarbyclor'],
+            'Eprosartan' : ['Teveten, teveten plus',
+                                'Teventen', 'teveten', 'Teveten', ], 
+        }
+
+        for key in temp.keys():
+            data[key] = 0
+            medicine_cols.append(key)
+            for v in temp[key]:
+                idxs = data.iloc[:, 376].str.upper().str.strip().str.contains(v.upper()).fillna(False)
+                data.loc[idxs, key] = self.percentage_to_float(data, 'Using Dose.8')[idxs]
+    
+        temp = {# statin
             'Atorvastatin' : ['Atozet', 'Lipitor', '리피토정', 'arovan', 'atorva', 'atorvastatin', 'atorvin', 'atova', 'caduet', 'lipilou', 'lipinon', 'lipiwon', 'neustatin-A', 'newvast', '아토젯', 'Ataozet', 'aticzet', 'atoxet', 'Liipirotr', 'lipirou', 
                                 'kipitor', 'atrozet', 'Liipitor', 'lipicon', 'Lipidil Supra', 'Nerstatin-R', 'Neu-statin-R', 'Lipitoer Tab', 'Neustatin R', 'liipitor', 'Lipitol', 'lipitopr', 'neustatin A', 'Atorcastatin', 'Atrova', 'Lipitou', 'nesustatin-a', 'lipiotr', 'lipitoe', 'atrovan statin'],
             'Rosuvastatin' : ['Crestor', 'rosuzet', 'vivacor', '비바코정', 'allstatin', 'creazin', 'credouble', 'cresant', 'cresnon', 'crezet', 'duonon', 'duowell', 'esuba', 'megarozet', 'neustatin-R', 'olosta', 'rosulord', 'rosuvamibe', 'rotacand', 'rovatitan', 'rovaid', 'rovasta', 'rovazet', 'rovelito', 'suvast', '로바스타정', '로바젯', '로벨리토정', '콜레스논정', '크레스토', '올로스타정', 'Crestorr', 'crestpr',
@@ -361,7 +395,20 @@ class KamirDataModule(DataModule):
                 idxs = data.iloc[:, 380].str.upper().str.strip().str.contains(v.upper()).fillna(False)
                 data.loc[idxs, key] = self.percentage_to_float(data, 'Using Dose.9')[idxs]
         
-        data['omega3'] = 0
+        temp = { #OHA
+            'Empagliflozin' : ['Jardiance', '자디앙'],
+            'Dapagliflozin' : ['Forxiga', '포시가', 'xigduo', 'xigduo XR']
+        }
+
+        for key in temp.keys():
+            data[key] = 0
+            medicine_cols.append(key)
+            for v in temp[key]:
+                for oha in [392, 393, 394]:
+                    idxs = data.iloc[:, oha].str.upper().str.strip().str.contains(v.upper()).fillna(False)
+                    data.loc[idxs, key] = self.percentage_to_float(data, 'Using Dose.13')[idxs]
+    
+        data['omega3'] = 0 # omega
         idxs = data.iloc[:, 395].apply(lambda x : True if x == 1.0 else False)
         data.loc[idxs,'omega3'] = self.percentage_to_float(data, 'Using Dose.14')[idxs]
         medicine_cols.append('omega3')
