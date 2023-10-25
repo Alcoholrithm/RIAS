@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from types import SimpleNamespace
 from typing import Dict, Any, Type, List, Union
 from numpy.typing import NDArray
@@ -332,7 +334,8 @@ class RIAS(object):
     
     def predict_proba(self, X_test: pd.DataFrame) -> np.array:
         """Return predicted probabilities for each class for given samples
-
+        If the calibrate flag is True, the probabilities are calibrated.
+        
         Args:
             X_test (pd.DataFrame): A set of samples to predict their probabilities for each class.
 
@@ -470,7 +473,7 @@ class RIAS(object):
         self.base_values = self.shap_values.base_values.mean(0)
         
     def report_pred(self, sample: pd.Series, target: int = 0, save: bool = False, save_path: str = None) -> shap.plots._force.AdditiveForceVisualizer:
-        """_summary_
+        """Report prediction with local explanations for a given sample.
 
         Args:
             sample (pd.Series): A sample to report its prediction.
@@ -500,6 +503,8 @@ class RIAS(object):
         return plot
     
     def calculate_feature_importance(self) -> None:
+        """Calculate the global feature importance using BorutaShap algorithm
+        """
         self.feature_selector = BorutaShap(importance_measure='shap',
                                         classification=False if self.config.experiment.task == "regression" else True,
                                         )
@@ -524,6 +529,11 @@ class RIAS(object):
         self.feature_importances.reset_index(drop=True, inplace=True)
         
     def report_feature_importance(self, report_path: str = 'feature_importance') -> None:
+        """Report the calculated feature importance as csv format
+
+        Args:
+            report_path (str, optional): A saving path for the report. Defaults to 'feature_importance'.
+        """
         
         assert self.feature_selector is not None, "Run calculate_feature_importance first"
         
@@ -533,6 +543,14 @@ class RIAS(object):
         self.feature_selector.results_to_csv(f'{report_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.csv')
     
     def report_recursive_feature_elimination(self, _X_test: pd.DataFrame, _y_test: np.array, eval_metric = None, min_features = None) -> None:
+        """TO DO
+
+        Args:
+            _X_test (pd.DataFrame): _description_
+            _y_test (np.array): _description_
+            eval_metric (_type_, optional): _description_. Defaults to None.
+            min_features (_type_, optional): _description_. Defaults to None.
+        """
         min_features = min_features if min_features is not None else (self.feature_importances["Decision"] == "Accepted").sum()
         
         base_X = self.X.copy()
@@ -561,18 +579,37 @@ class RIAS(object):
         
         
         
-    def save_model(self, save_path: str = 'checkpoints') -> None:
+    def save_model(self, save_path: str = 'checkpoints') -> str:
+        """Save the model
+
+        Args:
+            save_path (str, optional): A saving path for the model. Defaults to 'checkpoints'.
+
+        Returns:
+            str: The saving path for the model.
+        """
         if not os.path.exists(save_path):
             os.mkdir(save_path)
         save_path = f"{save_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}"
         save_path = self.model.save_model(save_path)
         return save_path
     
-    def load_model(self, model_path = None) -> None:
+    def load_model(self, model_path: str) -> None:
+        """Load the model
+
+        Args:
+            model_path (str): A path where the model is saved.
+        """
+
         self.model = self.get_model(hparams={})
         self.model.load_model(model_path)
 
     def save_shap(self, shap_path: str = None) -> None:
+        """Save the shap explainer
+
+        Args:
+            shap_path (str, optional): A saving path for the shap explainer. Defaults to None.
+        """
         if shap_path == None:
             self.shap_path = f"./shap-{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.pickle"
         else:
@@ -580,13 +617,20 @@ class RIAS(object):
             self.shap_explainer.save(open(self.shap_path, 'wb'))
             
         
-    def load_shap(self, shap_path: str = None) -> None:
-        
-        assert shap_path != None, "Shap path cannot be None"
-        
+    def load_shap(self, shap_path: str) -> None:
+        """Load the shap explainer
+
+        Args:
+            shap_path (str): A path where the shap explainer is saved.
+        """
         self.shap_explainer = shap.PermutationExplainer.load(open(shap_path, 'rb'))
         
     def save_rias(self, save_path: str = "./rias_checkpoints") -> None:
+        """Save the rias
+
+        Args:
+            save_path (str, optional): A saving path for the rias. Defaults to "./rias_checkpoints".
+        """
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
             
@@ -603,8 +647,16 @@ class RIAS(object):
         self.load_shap(self.shap_path)
     
     @staticmethod
-    def load_rias(path: str) -> None:
-        rias = pickle.load(open(path, 'rb'))
+    def load_rias(rias_path: str) -> RIAS:
+        """Load the rias
+
+        Args:
+            path (str): A path where the rias is saved.
+
+        Returns:
+            RIAS: The loaded rias.
+        """
+        rias = pickle.load(open(rias_path, 'rb'))
         rias.load_model(rias.model_path)
         del rias.model_path
 
