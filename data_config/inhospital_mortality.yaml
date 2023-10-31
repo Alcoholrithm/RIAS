@@ -65,7 +65,7 @@ rename_cols : {
                 'LVED.1' : 'LVED'
             }
 
-target : "6M"
+target : "inhospital"
 
 metric : "f1_score"
 

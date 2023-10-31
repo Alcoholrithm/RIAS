@@ -103,11 +103,19 @@ class KamirDataModule(DataModule):
         
         return data, label.values, continuous_cols, categorical_cols
 
+    def get_inhospital(self, 
+                data: pd.DataFrame
+        ) -> pd.Series:
+        label_inhospital = data.iloc[:, 320]
+        label_inhospital = label_inhospital.apply(lambda x : 1 if x == 'Death' else 0)
+        return label_inhospital
+    
     def get_6M(self, 
                 data: pd.DataFrame
         ) -> pd.Series:
-        label_6M = data.iloc[:, 320]
-        label_6M = label_6M.apply(lambda x : 1 if x == 'Death' else 0)
+        label_6M_idx = data['6 month Follow-up'].apply(bool)
+        label_6M = (data.loc[label_6M_idx, '6M_Cardiac death (CD) '] == 1) | (data.loc[label_6M_idx, '6M_Non-cardiac death'] == 1)
+        label_6M = label_6M.apply(lambda x : 1 if x == True else 0)
         return label_6M
     
     def get_12M(self, 
@@ -140,7 +148,9 @@ class KamirDataModule(DataModule):
     def get_label(self, 
                     data: pd.DataFrame
         ) -> pd.Series:
-        if self.config.target == '6M':
+        if self.config.target == 'inhospital':
+            return self.get_inhospital(data)
+        elif self.config.target =="6M":
             return self.get_6M(data)
         elif self.config.target == '12M':
             return self.get_12M(data)
