@@ -166,7 +166,7 @@ class PytorchTabularBase(BaseModel, ABC):
     
     def save_model(self, 
                     saving_path: str = None
-        ) -> None:
+        ) -> str:
         self.model.save_model(saving_path)
         return saving_path
     
