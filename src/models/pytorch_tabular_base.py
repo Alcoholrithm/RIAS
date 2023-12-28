@@ -20,11 +20,10 @@ from abc import ABC, abstractmethod
 
 class PytorchTabularBase(BaseModel, ABC):
     def __init__(self, **kwargs):
-        # config: SimpleNamespace, continuous_cols: List[str], categorical_cols: List[str]
+        super().__init__(**kwargs)
         config = kwargs["config"]
         continuous_cols = kwargs["continuous_cols"]
         categorical_cols = kwargs["categorical_cols"]
-        super().__init__(config)
         
         
         if self.config.experiment.optuna.direction == 'maximize':

@@ -7,10 +7,6 @@ from typing import List, Dict, Any
 class MLP(PytorchTabularBase):
     
     def __init__(self, 
-                # config: SimpleNamespace, 
-                # continuous_cols: List[str], 
-                # categorical_cols: List[str],
-                # hparams: Dict[str, Any] = None
                 **kwargs
         ) -> None:
         super().__init__(**kwargs)

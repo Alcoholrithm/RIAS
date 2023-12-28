@@ -7,10 +7,9 @@ from xgboost import XGBClassifier, XGBRegressor
 from copy import deepcopy
 class XGB(BaseModel):
     def __init__(self, **kwargs) -> None:
-        # config: SimpleNamespace = None, hparams: Dict[str, Any] = None
+        super().__init__(**kwargs)
         config = kwargs["config"]
         hparams = kwargs["hparams"]
-        super().__init__(config)
         assert (hparams is not None) or (self.config.model.hparams is not None), "No model hyperparameters"
         
         if hparams == None:

@@ -4,7 +4,6 @@ from typing import Dict, List, Any
 base_config = SimpleNamespace()
 
 base_config.model = SimpleNamespace()
-base_config.model.model_class = None
 base_config.model.hparams: Dict[str, Any] = None
 base_config.model.search_range = None
 base_config.model.model_path = None
@@ -40,19 +39,6 @@ base_config.experiment.fast_dev_run = False
 base_config.dice = SimpleNamespace()
 base_config.dice.backend = None
 base_config.dice.func = None
-# base_config.dice.total_CFs = 4
-# base_config.dice.desired_class = None
-# base_config.dice.features_to_vary = "all"
-# base_config.dice.additional_kwargs = {} # for generate_counterfactuals
-
-
-base_config.lime = SimpleNamespace()
-base_config.lime.class_names = None # A list of class names
-base_config.lime.verbose = True
-base_config.lime.discretize_continuous = True
-base_config.lime.kwargs = {} # for LimeTabularExplainer
-base_config.lime.num_features = None
-base_config.lime.file = None # The name of report file for given sample (*.html)
 
 
 base_config.experiment.borutashap = SimpleNamespace()

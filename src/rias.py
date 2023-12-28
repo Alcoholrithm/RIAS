@@ -22,13 +22,14 @@ from netcal import scaling, binning
 from netcal.metrics import ECE
 
 import dice_ml
-import lime.lime_tabular
 import shap
 from BorutaShap import BorutaShap
 from tqdm import tqdm
 
 from .models import BaseModel
 from .misc.eval_metric import EvalMetric
+
+import importlib
 
 class RIAS(object):
     def __init__(self, config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array,
@@ -488,18 +489,13 @@ class RIAS(object):
         sample = self.check_input(sample)
         shap_value = self.shap_explainer(sample)
         
-        # plot = shap.force_plot(self.expected_pred_proba[target], shap_value[0, :, target], sample, matplotlib=True, show=False)
-        # plot = shap.force_plot(shap_value.base_values[0][target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)
         plot = shap.force_plot(self.base_values[target], shap_value.values[0, :, target], sample, matplotlib=False, show=False)
 
         if save:
             if save_path is None:
                 save_path = self.start_time + '.html'
             shap.save_html(save_path, plot)
-            # if save_path is None:
-            #     save_path = self.start_time + '.png'
             
-            # plt.savefig(save_path, bbox_inches='tight')
         return plot
     
     def calculate_feature_importance(self) -> None:
@@ -542,40 +538,6 @@ class RIAS(object):
             
         self.feature_selector.results_to_csv(f'{report_path}/{self.config.experiment.data_config}-{self.model_class.__name__}-{self.start_time}.csv')
     
-    def report_recursive_feature_elimination(self, _X_test: pd.DataFrame, _y_test: np.array, eval_metric = None, min_features = None) -> None:
-        """TO DO
-
-        Args:
-            _X_test (pd.DataFrame): _description_
-            _y_test (np.array): _description_
-            eval_metric (_type_, optional): _description_. Defaults to None.
-            min_features (_type_, optional): _description_. Defaults to None.
-        """
-        min_features = min_features if min_features is not None else (self.feature_importances["Decision"] == "Accepted").sum()
-        
-        base_X = self.X.copy()
-        features = self.feature_importances["Features"].copy()
-        
-        self.rfe_results = {}
-        
-        X_test, y_test = _X_test.copy(), _y_test
-        
-        for n_features in tqdm(range(base_X.shape[-1], min_features - 1, -1)):
-            self.config.model.hparams = self.get_hparams()
-                
-            self.model = self.get_model()
-            
-            self.set_random_seed()
-            X_train, X_valid, y_train, y_valid = train_test_split(self.X, self.y, test_size = self.config.experiment.valid_size, random_state=self.random_seed)
-            self.model.fit(X_train, y_train, X_valid, y_valid)
-            
-            eval_results = self.test(X_test, y_test, eval_metric)
-            self.rfe_results[n_features] = (self.config.model.hparams, eval_results)
-            self.X.drop([features.iloc[-1]], axis=1, inplace=True)
-            X_test.drop([features.iloc[-1]], axis=1, inplace=True)
-            features.drop(index=len(features) - 1, inplace=True)
-        
-        self.X = base_X.copy()
         
         
         
@@ -665,4 +627,11 @@ class RIAS(object):
             del rias.shap_path
             
         rias.set_random_seed()
+        return rias
+    
+    @staticmethod
+    def prepare_rias(config: SimpleNamespace, model_class: Type[BaseModel], X: pd.DataFrame, y: np.array, continuous_cols: List[str], categorical_cols: List[str], calibrate: bool) -> RIAS:
+
+        rias = RIAS(config = config, model_class=model_class, X=X, y = y, continuous_cols=continuous_cols, categorical_cols=categorical_cols, calibrate=calibrate)
+        
         return rias

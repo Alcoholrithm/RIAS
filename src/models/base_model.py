@@ -4,13 +4,13 @@ import pandas as pd
 import numpy as np
 
 class BaseModel(ABC):
-    def __init__(self, config: SimpleNamespace) -> None:
+    def __init__(self, **kwargs) -> None:
         """An abstract base class for model of RIAS
 
         Args:
-            config (SimpleNamespace): A namespace that has predefined options for model.
+            **kwargs: A dictionary that has requirements of the model.
         """
-        self.config = config
+        self.config = kwargs["config"]
     
     @abstractmethod
     def fit(self, X_train: pd.DataFrame, y_train: np.array, X_valid: pd.DataFrame, y_valid: np.array) -> None:

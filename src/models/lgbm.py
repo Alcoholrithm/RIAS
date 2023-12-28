@@ -9,10 +9,9 @@ import pickle
 
 class LGBM(BaseModel):
     def __init__(self, **kwargs) -> None:
-        # config: SimpleNamespace = None, hparams: Dict[str, Any] = None
+        super().__init__(**kwargs)
         config = kwargs["config"]
         hparams = kwargs["hparams"]
-        super().__init__(config)
         assert (hparams == None) or (self.config.model.hparams == None), "No model hyperparameters"
         
         if hparams == None:
