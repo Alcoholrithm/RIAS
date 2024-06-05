@@ -563,7 +563,7 @@ class RIAS(object):
             model_path (str): A path where the model is saved.
         """
 
-        self.model = self.get_model(hparams={})
+        self.model = self.get_model()
         self.model.load_model(model_path)
 
     def save_shap(self, shap_path: str = None) -> None:
